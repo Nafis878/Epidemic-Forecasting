@@ -50,6 +50,16 @@ NHSN_URL_FALLBACK = "https://data.cdc.gov/resource/mpgq-jmmr.csv"
 SIGNAL = "flu_hosp_admissions"
 DEFAULT_REPORTING_LAG_DAYS = 4
 
+# NHSN hospital respiratory reporting became *mandatory* (was voluntary) on
+# 2024-11-01. Admission counts before/after this date are not directly
+# comparable; downstream models receive this as a ``post_mandatory`` covariate.
+NHSN_MANDATE_DATE = pd.Timestamp("2024-11-01")
+
+
+def post_mandatory_flag(reference_date) -> pd.Series:
+    """Boolean: is ``reference_date`` on/after the NHSN mandatory-reporting date."""
+    return pd.to_datetime(reference_date) >= NHSN_MANDATE_DATE
+
 
 # --------------------------------------------------------------------------- raw
 def fetch_flusight_truth(timeout: int = 120) -> pd.DataFrame:

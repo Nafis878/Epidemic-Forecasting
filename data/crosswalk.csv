@@ -1,0 +1,58 @@
+fips,abbrev_upper,abbrev_lower,state_name,nhsn_has_territory
+US,USA,nat,United States,False
+01,AL,al,Alabama,False
+02,AK,ak,Alaska,False
+04,AZ,az,Arizona,False
+05,AR,ar,Arkansas,False
+06,CA,ca,California,False
+08,CO,co,Colorado,False
+09,CT,ct,Connecticut,False
+10,DE,de,Delaware,False
+11,DC,dc,District of Columbia,False
+12,FL,fl,Florida,False
+13,GA,ga,Georgia,False
+15,HI,hi,Hawaii,False
+16,ID,id,Idaho,False
+17,IL,il,Illinois,False
+18,IN,in,Indiana,False
+19,IA,ia,Iowa,False
+20,KS,ks,Kansas,False
+21,KY,ky,Kentucky,False
+22,LA,la,Louisiana,False
+23,ME,me,Maine,False
+24,MD,md,Maryland,False
+25,MA,ma,Massachusetts,False
+26,MI,mi,Michigan,False
+27,MN,mn,Minnesota,False
+28,MS,ms,Mississippi,False
+29,MO,mo,Missouri,False
+30,MT,mt,Montana,False
+31,NE,ne,Nebraska,False
+32,NV,nv,Nevada,False
+33,NH,nh,New Hampshire,False
+34,NJ,nj,New Jersey,False
+35,NM,nm,New Mexico,False
+36,NY,ny,New York,False
+37,NC,nc,North Carolina,False
+38,ND,nd,North Dakota,False
+39,OH,oh,Ohio,False
+40,OK,ok,Oklahoma,False
+41,OR,or,Oregon,False
+42,PA,pa,Pennsylvania,False
+44,RI,ri,Rhode Island,False
+45,SC,sc,South Carolina,False
+46,SD,sd,South Dakota,False
+47,TN,tn,Tennessee,False
+48,TX,tx,Texas,False
+49,UT,ut,Utah,False
+50,VT,vt,Vermont,False
+51,VA,va,Virginia,False
+53,WA,wa,Washington,False
+54,WV,wv,West Virginia,False
+55,WI,wi,Wisconsin,False
+56,WY,wy,Wyoming,False
+72,PR,,Puerto Rico,True
+60,AS,,American Samoa,True
+66,GU,,Guam,True
+69,MP,,Northern Mariana Islands,True
+78,VI,,U.S. Virgin Islands,True
