@@ -80,14 +80,39 @@ class MISTModelV2(MISTModel):
     """MIST with R_t-conditioned blending (Phase 3.1) and conformal/ACI calibration."""
 
     def __init__(self, *args, use_conformal: bool = True, use_blend: bool = True,
-                 **kwargs) -> None:
+                 mobility: str = "correlation", **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.use_conformal = use_conformal
         self.use_blend = use_blend
+        self.mobility = mobility
         # conformal_delta[horizon][alpha] = additive interval half-width adjustment.
         self.conformal_delta: dict[int, dict[float, float]] = {}
         # Symmetric central-interval alphas implied by the quantile set (<0.5 levels).
         self._alphas = sorted({round(2.0 * q, 6) for q in self.quantiles if q < 0.5 - 1e-9})
+
+    def _compute_W(self, mat: np.ndarray) -> np.ndarray:
+        """Real population x inverse-distance gravity matrix (Phase 4 / user decision).
+
+        Falls back to the correlation proxy when ``mobility != 'gravity'`` or when no
+        embedded geography covers the panel.
+        """
+        if self.mobility != "gravity":
+            return super()._compute_W(mat)
+        from features.mobility import gravity_matrix, has_geo
+        locs = list(self.panel_locations)
+        if not any(has_geo(l) for l in locs):
+            return super()._compute_W(mat)
+        W = gravity_matrix(locs)
+        # For any location lacking geography, borrow its correlation row so it is
+        # not spatially isolated.
+        missing = [i for i, l in enumerate(locs) if not has_geo(l)]
+        if missing:
+            corr = super()._compute_W(mat)
+            for i in missing:
+                W[i, :] = corr[i, :]
+                W[:, i] = corr[:, i]
+            np.fill_diagonal(W, 1.0)
+        return W
 
     def _build_net(self, context: int, horizon: int) -> MISTNetV2:
         return MISTNetV2(context, horizon, len(self.quantiles),

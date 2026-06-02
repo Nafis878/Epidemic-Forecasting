@@ -281,6 +281,15 @@ class MISTModel:
         self._cache: dict = {}
         self._q = torch.tensor(self.quantiles, dtype=torch.float32, device=device)
 
+    # --- spatial matrix (overridable by subclasses) --------------------------
+    def _compute_W(self, mat: np.ndarray) -> np.ndarray:
+        """Training-window curve-correlation proxy (>=0, unit diagonal)."""
+        with np.errstate(invalid="ignore"):
+            corr = np.corrcoef(mat.T)
+        corr = np.nan_to_num(corr, nan=0.0)
+        np.fill_diagonal(corr, 1.0)
+        return np.clip(corr, 0.0, None)
+
     # --- network construction (overridable by subclasses) --------------------
     def _build_net(self, context: int, horizon: int) -> "MISTNet":
         return MISTNet(context, horizon, len(self.quantiles),
@@ -311,12 +320,8 @@ class MISTModel:
         mat = df.to_numpy(dtype=np.float32)               # (T, S)
         T, S = mat.shape
 
-        # Mobility-proximity proxy: training-window curve correlation (>=0).
-        with np.errstate(invalid="ignore"):
-            corr = np.corrcoef(mat.T)
-        corr = np.nan_to_num(corr, nan=0.0)
-        np.fill_diagonal(corr, 1.0)
-        self.W = torch.tensor(np.clip(corr, 0.0, None), dtype=torch.float32,
+        # Spatial proximity matrix W (overridable; v1 = training-window correlation).
+        self.W = torch.tensor(self._compute_W(mat), dtype=torch.float32,
                               device=self.device)
 
         C, H = self.context_length, self.horizon

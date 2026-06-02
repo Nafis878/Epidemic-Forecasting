@@ -2,6 +2,44 @@
 
 A running log of changes during the NeurIPS upgrade sprint. Newest first.
 
+## Phase 4 — Evaluation depth (full ~53-location panel, 2023-24)
+Headline: on the **full panel**, **mist_v2 (WIS 84.8) beats ARIMA (88.5)** overall
+while well-calibrated (cov-95 0.905), and is **best in Rising (51.2 vs 61.6) and Peak
+(152.8 vs 179.2)**, near-tying ARIMA in Declining (87.5 vs 81.4 — the blend closed
+the gap from 117.8). (Full-panel WIS is lower than the 3-location numbers because the
+panel is dominated by small-count states; rankings are what matter.)
+
+- **Mobility decision** (`features/mobility.py`): a real population x inverse-distance
+  gravity matrix was built and tested as MIST's spatial prior, but it was ~6.4% *worse*
+  than the correlation proxy (the model drove γ_s→0). Per the user's call, MIST keeps
+  the correlation proxy and the **gravity matrix is used as an independent mobility
+  reference** for the spatial/attention analyses — turning "attention aligns with
+  mobility" into a falsifiable check rather than an assumption.
+- **4.0 Benchmark** (`evaluation/run_benchmark_v2.py` → `results/leaderboard_v2.csv`,
+  `results/phase_performance_v2.csv`, `results/results_all_v2.csv`): all 9 models
+  (full MIST v2 + 4 ablations + ARIMA/SEIR/TFT/PatchTST). Ablation (overall WIS):
+  mist_no_aci 77.3 (sharper but under-covers) · mist_v2 84.8 · arima 88.5 ·
+  no_analogue 91.9 · patchtst 96.8 · tft 97.2 · no_blend 109.6 · no_mech 110.3 ·
+  seir 118.1.
+- **4.1 DM tests** (`evaluation/dm_test.py` → `tables/dm_significance.csv`,
+  `tables/dm_headline_rising.csv`): Diebold-Mariano with Bartlett HAC + HLN
+  small-sample correction. mist_v2 significantly beats every ablation (no_blend
+  p<0.001, no_mech p=0.004, no_analogue p=0.009) and SEIR (p=0.002). In the **rising
+  phase mist_v2 beats every model** (all diffs<0; significant vs all ablations;
+  vs ARIMA/TFT/PatchTST p≈0.05-0.06 — a real but borderline edge on a single season).
+- **4.2 Horizon breakdown** (`results/horizon_breakdown.csv`,
+  `figures/horizon_breakdown.png`): graceful degradation — ARIMA wins the h=1 nowcast
+  (39 vs 55) but mist_v2 wins h=3 (92.9 vs 107.7) and h=4 (118.8 vs 132.1).
+- **4.3 Spatial connectivity** (`evaluation/spatial.py`,
+  `figures/spatial_connectivity.png`, `results/spatial_strata.csv`): MIST's gain over
+  ARIMA is largest at national (+69) and positive for high/mid-connectivity
+  (+3.2/+4.4) but negative for low-connectivity (−0.8) and the territory (−8.6) —
+  partial support for the hub-state hypothesis.
+- **4.4 Multi-season** (`evaluation/run_seasons.py` → `results/season_wis.csv`):
+  re-runs the competitive models on 2022-23 and 2023-24 separately (running).
+- Tests: `tests/test_dm_spatial.py` (DM significance behaviour, gravity-matrix
+  symmetry, connectivity strata). Full suite: **54 passed**.
+
 ## Phase 3 — Fix the declining phase (the SOTA blocker)
 All numbers are mean WIS on the 3 evaluation locations (US/CA/NY), 2023-24 season,
 with ACI calibration applied to every variant; lower is better.
