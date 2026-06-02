@@ -78,6 +78,7 @@ class MechanisticAttention(nn.Module):
         self.qkv = nn.Linear(d_model, 3 * d_model)
         self.proj = nn.Linear(d_model, d_model)
         self.drop = nn.Dropout(dropout)
+        self.last_attn = None        # most recent attention weights (for inspection)
 
     def forward(self, x: torch.Tensor, bias: Optional[torch.Tensor] = None) -> torch.Tensor:
         # x: (B, T, d). bias: (T, T) or (B, T, T), added to attention logits.
@@ -92,6 +93,7 @@ class MechanisticAttention(nn.Module):
                 bias = bias.unsqueeze(1)                    # (B,1,T,T)
             scores = scores + bias
         attn = self.drop(torch.softmax(scores, dim=-1))
+        self.last_attn = attn.detach()                       # (B, h, T, T)
         out = (attn @ v).transpose(1, 2).reshape(B, T, d)
         return self.proj(out)
 

@@ -2,6 +2,26 @@
 
 A running log of changes during the NeurIPS upgrade sprint. Newest first.
 
+## Phase 5 — Paper-ready figures
+`evaluation/figures_paper.py` + `evaluation/run_figures.py`; a `last_attn` hook was
+added to `MechanisticAttention` to expose attention weights.
+
+- **5.1 Main result** (`figures/main_result.pdf` + 300-dpi `.png`): 3-panel
+  (Rising/Peak/Declining) WIS bars, MIST highlighted, ARIMA reference line,
+  DM-significance asterisks, colorblind-safe (Wong) palette.
+- **5.2 Attention vs mobility** (`figures/attention_map.pdf`/`.png`): for a rising
+  week in California, the learned **spatial** attention (blue) vs the independent
+  **gravity** mobility flows (grey). Honest finding — attention spreads broadly
+  (including to distant eastern states) and does **not** track commuting gravity;
+  it reflects epidemic **co-movement**, consistent with the model down-weighting the
+  gravity prior (γ_s→0). A falsifiable check with a genuine negative answer.
+- **5.3 Case study** (`figures/case_study.pdf`/`.png`): the two rising-phase episodes
+  with the largest MIST-over-ARIMA WIS gain (US national, Dec 2023). MIST's median +
+  95% band track the climb toward the peak while ARIMA stays flat/low — visible early
+  warning.
+- Tests: `tests/test_figures.py` (main-result figure renders from a synthetic phase
+  table). Full suite: **55 passed**.
+
 ## Phase 4 — Evaluation depth (full ~53-location panel, 2023-24)
 Headline: on the **full panel**, **mist_v2 (WIS 84.8) beats ARIMA (88.5)** overall
 while well-calibrated (cov-95 0.905), and is **best in Rising (51.2 vs 61.6) and Peak
@@ -36,7 +56,11 @@ panel is dominated by small-count states; rankings are what matter.)
   (+3.2/+4.4) but negative for low-connectivity (−0.8) and the territory (−8.6) —
   partial support for the hub-state hypothesis.
 - **4.4 Multi-season** (`evaluation/run_seasons.py` → `results/season_wis.csv`):
-  re-runs the competitive models on 2022-23 and 2023-24 separately (running).
+  per-season WIS — 2022-23: mist_v2 144.0, arima 245.7, tft 105.7, patchtst 91.3;
+  2023-24: mist_v2 84.8, arima 88.5, tft 97.2, patchtst 96.8. **mist_v2 beats ARIMA
+  in both seasons**; it is the best model in the data-rich 2023-24 season but the
+  simpler DL baselines edge it in the thin-training 2022-23 (only ~38 training weeks)
+  — an honest data-dependence caveat. (SEIR omitted here for runtime.)
 - Tests: `tests/test_dm_spatial.py` (DM significance behaviour, gravity-matrix
   symmetry, connectivity strata). Full suite: **54 passed**.
 
