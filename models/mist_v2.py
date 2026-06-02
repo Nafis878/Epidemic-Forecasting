@@ -24,21 +24,76 @@ from typing import Optional, Sequence
 import numpy as np
 import pandas as pd
 import torch
+from torch import nn
 
 from evaluation.metrics import DEFAULT_QUANTILES
-from models.mist_transformer import MISTModel, _EPS
+from models.mist_transformer import MISTNet, MISTModel, estimate_rt, _EPS
+
+
+class MISTNetV2(MISTNet):
+    """MIST network with an R_t-conditioned blend toward a persistence nowcast.
+
+    Rationale (Phase 3.1): MIST excels in the rising phase but over-shoots in the
+    declining phase, where a simple persistence/drift nowcast is hard to beat. We
+    blend the two by the epidemic regime::
+
+        alpha = sigmoid(beta * (R_t - 1))            # learnable scalar beta
+        y_hat = alpha * MIST + (1 - alpha) * persistence
+
+    so alpha -> 1 when R_t > 1 (rising: trust MIST) and alpha -> 0 when R_t < 1
+    (declining: fall back to persistence). The persistence nowcast is a
+    random-walk-with-drift in the network's normalised space (the normalised
+    analogue of an AR(1)-in-log nowcast), and ``beta`` is trained end-to-end with
+    the rest of the network through the pinball loss.
+    """
+
+    def __init__(self, *args, use_blend: bool = True, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.use_blend = use_blend
+        self.raw_beta = nn.Parameter(torch.tensor(3.0))      # init beta = 3.0
+
+    def forward(self, x_norm, x_raw, W=None, return_gates: bool = False):
+        out = super().forward(x_norm, x_raw, W, return_gates=return_gates)
+        gates = None
+        if return_gates:
+            out, gates = out
+        if self.use_blend:
+            out = self._blend(out, x_norm, x_raw)
+        return (out, gates) if return_gates else out
+
+    def _blend(self, mist_out, x_norm, x_raw):
+        # mist_out: (B,S,H,Q); x_norm,x_raw: (B,S,C)
+        B, S, H, Q = mist_out.shape
+        rt_last = estimate_rt(x_raw)[..., -1]                 # (B,S)
+        alpha = torch.sigmoid(self.raw_beta * (rt_last - 1.0))    # (B,S)
+        alpha = alpha.view(B, S, 1, 1)
+
+        last = x_norm[..., -1]                                # (B,S)
+        drift = (x_norm[..., -1] - x_norm[..., -4]) / 3.0     # per-step drift (normalised)
+        steps = torch.arange(1, H + 1, device=mist_out.device, dtype=mist_out.dtype)
+        pers = last.unsqueeze(-1) + drift.unsqueeze(-1) * steps   # (B,S,H)
+        pers = pers.unsqueeze(-1)                             # (B,S,H,1) broadcast over Q
+        return alpha * mist_out + (1.0 - alpha) * pers
 
 
 class MISTModelV2(MISTModel):
-    """MIST with split-conformal interval recalibration."""
+    """MIST with R_t-conditioned blending (Phase 3.1) and conformal/ACI calibration."""
 
-    def __init__(self, *args, use_conformal: bool = True, **kwargs) -> None:
+    def __init__(self, *args, use_conformal: bool = True, use_blend: bool = True,
+                 **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.use_conformal = use_conformal
+        self.use_blend = use_blend
         # conformal_delta[horizon][alpha] = additive interval half-width adjustment.
         self.conformal_delta: dict[int, dict[float, float]] = {}
         # Symmetric central-interval alphas implied by the quantile set (<0.5 levels).
         self._alphas = sorted({round(2.0 * q, 6) for q in self.quantiles if q < 0.5 - 1e-9})
+
+    def _build_net(self, context: int, horizon: int) -> MISTNetV2:
+        return MISTNetV2(context, horizon, len(self.quantiles),
+                         patch_sizes=self.patch_sizes, d_model=self.d_model,
+                         n_heads=self.n_heads, n_experts=self.n_experts,
+                         use_mechanistic=self.use_mechanistic, use_blend=self.use_blend)
 
     # ------------------------------------------------------------------- fit
     def fit(self, store, *, signal: str, source: str, locations: Sequence[str],

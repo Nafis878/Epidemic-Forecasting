@@ -281,6 +281,13 @@ class MISTModel:
         self._cache: dict = {}
         self._q = torch.tensor(self.quantiles, dtype=torch.float32, device=device)
 
+    # --- network construction (overridable by subclasses) --------------------
+    def _build_net(self, context: int, horizon: int) -> "MISTNet":
+        return MISTNet(context, horizon, len(self.quantiles),
+                       patch_sizes=self.patch_sizes, d_model=self.d_model,
+                       n_heads=self.n_heads, n_experts=self.n_experts,
+                       use_mechanistic=self.use_mechanistic)
+
     # --- panel assembly ------------------------------------------------------
     def _panel_matrix(self, locations, as_of):
         """Rectangular (T, S) matrix of vintage values aligned on common dates."""
@@ -326,10 +333,7 @@ class MISTModel:
         tr = slice(0, len(X) - n_val)
         va = slice(len(X) - n_val, len(X))
 
-        self.net = MISTNet(C, H, len(self.quantiles), patch_sizes=self.patch_sizes,
-                           d_model=self.d_model, n_heads=self.n_heads,
-                           n_experts=self.n_experts,
-                           use_mechanistic=self.use_mechanistic).to(self.device)
+        self.net = self._build_net(C, H).to(self.device)
         opt = torch.optim.Adam(self.net.parameters(), lr=self.lr,
                                weight_decay=self.weight_decay)
 

@@ -2,6 +2,33 @@
 
 A running log of changes during the NeurIPS upgrade sprint. Newest first.
 
+## Phase 3 — Fix the declining phase (the SOTA blocker)
+All numbers are mean WIS on the 3 evaluation locations (US/CA/NY), 2023-24 season,
+with ACI calibration applied to every variant; lower is better.
+
+- **3.1 R_t-conditioned blend** (`models/mist_v2.py` → `MISTNetV2`): blends MIST with
+  a persistence (random-walk-with-drift, normalised) nowcast by
+  `alpha = sigmoid(beta*(R_t-1))`, `beta` trained **end-to-end** (init 3.0 → learned
+  2.71). Declining **1106 → 784 (−29%)**, overall **1030 → 832 (−19%)**, Rising
+  slightly better (506 → 478), Peak ~flat; coverage preserved. Far exceeds the
+  ">20% declining improvement" target.
+- **3.2 Ablation** (all + ACI): mist-no-mech 1091 · mist-no-blend 1030 ·
+  mist-full(blend+mech) 832 · **mist-full+analogue 730**. Each component helps:
+  mechanistic attention most in Peak (removing it: 1964→2424), the blend most in
+  Declining, the analogue prior broadly.
+- **3.3 Historical-analogue prior** (`features/analogue.py`, `models/analogue_blend.py`):
+  numpy **DTW** retrieves the k=5 most similar historical ILINet rising windows
+  (shape-normalised, so the ILI%% syndromic signal can match the admissions target);
+  their mean continuation softly nudges the rising-phase median. Leakage-safe —
+  analogues whose continuation reaches the current season are excluded. Adding it
+  improves **overall WIS 832 → 730 (−12%)**, Rising 478→431, Peak 1964→1547,
+  Declining 784→717, coverage intact. The full v2 stack (blend + mechanistic +
+  analogue + ACI) is the strongest configuration and is on track to beat ARIMA
+  overall (confirmed on the full panel in Phase 4).
+- Refactor: `MISTModel._build_net` made overridable so v2 swaps in `MISTNetV2`
+  without duplicating the training loop.
+- Tests: `tests/test_blend.py` (4), `tests/test_analogue.py` (5). Full suite: **50 passed**.
+
 ## Phase 2 — Calibration fix (cov-50)
 - **2.1 Diagnosis** (`evaluation/calibration.py`, `evaluation/run_calibration.py`):
   reliability diagrams + Expected Calibration Error per model →
