@@ -175,3 +175,46 @@ def case_study_figure(results_all: pd.DataFrame, store, mist_model, arima_model,
     fig.savefig(out_path.replace(".pdf", ".png"), dpi=200)
     plt.close(fig)
     return out_path
+
+
+# ---------------------------------------------------------- multi-season comparison
+def season_comparison_figure(season_wis: pd.DataFrame, out_stem: str,
+                             focal: str = "mist_v2") -> str:
+    """Grouped WIS bars by season x model from ``results/season_wis.csv``.
+
+    ``season_wis`` columns: season, model, wis (others ignored). MIST is highlighted
+    in the Wong-palette blue, ARIMA in orange, others grey. The thin-data 2022-23
+    season is annotated on the MIST bar ("~38 training weeks") to explain its weaker
+    result honestly rather than dropping it.
+    """
+    piv = season_wis.pivot(index="season", columns="model", values="wis")
+    seasons = list(piv.index)
+    models = [focal] + [m for m in piv.columns if m != focal]
+    x = np.arange(len(seasons))
+    width = 0.8 / len(models)
+
+    fig, ax = plt.subplots(figsize=(10, 5.5))
+    for i, m in enumerate(models):
+        color = CB["mist"] if m == focal else (CB["arima"] if m == "arima" else CB["other"])
+        offs = (i - (len(models) - 1) / 2) * width
+        ax.bar(x + offs, piv[m].values, width, label=m, color=color,
+               edgecolor="black", linewidth=0.4)
+
+    # Honest annotation on the thin-data 2022-23 MIST bar.
+    if "2022-23" in seasons and focal in piv.columns:
+        si = seasons.index("2022-23")
+        foffs = (models.index(focal) - (len(models) - 1) / 2) * width
+        ax.annotate("~38 training weeks", xy=(x[si] + foffs, piv.loc["2022-23", focal]),
+                    xytext=(x[si] + foffs, piv.loc["2022-23", focal] + 18),
+                    ha="center", fontsize=8,
+                    arrowprops=dict(arrowstyle="->", lw=0.8, color="grey"))
+
+    ax.set_xticks(x); ax.set_xticklabels(seasons)
+    ax.set(xlabel="Flu season", ylabel="Mean WIS",
+           title="Cross-season WIS by model (lower is better)")
+    ax.legend(fontsize=8, ncol=len(models)); ax.grid(alpha=0.3, axis="y")
+    fig.tight_layout()
+    fig.savefig(out_stem + ".pdf")
+    fig.savefig(out_stem + ".png", dpi=300)
+    plt.close(fig)
+    return out_stem + ".pdf"

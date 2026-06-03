@@ -35,7 +35,12 @@ HORIZONS = (1, 2, 3, 4)
 SEASONS = {
     "2022-23": {"train_end": "2022-10-29", "origins": ("2022-11-05", "2023-04-29")},
     "2023-24": {"train_end": "2023-10-28", "origins": ("2023-11-04", "2024-04-27")},
+    "2024-25": {"train_end": "2024-09-28", "origins": ("2024-10-05", "2025-05-31")},
 }
+
+# Per-forecast columns kept for the pooled 3-season DM test (run_analysis / dm_3seasons).
+_RECORD_COLS = ["season", "model", "forecast_date", "reference_date", "location",
+                "horizon", "y_true", "median", "wis", "mae"]
 
 
 def _panel(store):
@@ -59,6 +64,7 @@ def run():
     store = VersionedStore()
     panel = _panel(store)
     rows = []
+    records = []                       # per-forecast frames, all seasons/models
     for season, cfg in SEASONS.items():
         te = cfg["train_end"]
         origins = pd.date_range(*cfg["origins"], freq="7D")
@@ -89,13 +95,21 @@ def run():
             rows.append({"season": season, "model": name, "n": len(res),
                          "wis": res["wis"].mean(), "mae": res["mae"].mean(),
                          "cov_50": res["cov_50"].mean(), "cov_95": res["cov_95"].mean()})
+            res = res.copy()
+            res.insert(0, "season", season)
+            records.append(res[_RECORD_COLS])
             print(f"  {name:10s}: WIS={res['wis'].mean():7.1f} "
                   f"cov50={res['cov_50'].mean():.2f} ({time.time()-t0:.0f}s)")
 
     out = pd.DataFrame(rows)
     out.to_csv(os.path.join(RES, "season_wis.csv"), index=False)
+
+    rec = pd.concat(records, ignore_index=True) if records else pd.DataFrame(columns=_RECORD_COLS)
+    rec.to_csv(os.path.join(RES, "season_records.csv"), index=False)
+
     print("\n=== season_wis.csv ===")
     print(out.pivot(index="model", columns="season", values="wis").round(1).to_string())
+    print(f"\nseason_records.csv: {len(rec)} per-forecast rows -> {RES}")
     return out
 
 
