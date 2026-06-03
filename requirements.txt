@@ -1,0 +1,13 @@
+# MIST — Epidemic Forecasting. Pinned to the versions used to produce the
+# results in results/ and the paper in paper/. Python 3.10.
+torch==2.9.1
+numpy==2.2.6
+pandas==2.3.1
+scipy==1.15.3
+matplotlib==3.10.7
+statsmodels==0.14.6
+scikit-learn==1.7.2
+duckdb==1.5.3
+pyarrow==24.0.0
+requests==2.31.0
+pytest==9.0.3
