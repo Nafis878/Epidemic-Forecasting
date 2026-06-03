@@ -1,0 +1,32 @@
+% neurips_stub.sty — MINIMAL stand-in for the official NeurIPS style.
+% The official neurips_2025.sty was unreachable at build time (404/403).
+% REPLACE WITH THE OFFICIAL STYLE BEFORE SUBMISSION:
+%   https://neurips.cc/Conferences/2025/CallForPapers (Styles)
+% Accepts the usual options (preprint/final/nonatbib) as no-ops so the .tex
+% compiles unchanged once the official file is dropped in.
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{neurips_stub}[2025/01/01 minimal NeurIPS stub]
+
+\DeclareOption{preprint}{}
+\DeclareOption{final}{}
+\DeclareOption{nonatbib}{}
+\ProcessOptions\relax
+
+\RequirePackage[margin=1in]{geometry}
+\RequirePackage{times}
+\RequirePackage{setspace}
+
+% --- title block ---------------------------------------------------------
+\renewcommand{\maketitle}{%
+  \begin{center}
+    {\LARGE\bfseries \@title \par}\vskip 1em
+    {\large \@author \par}\vskip 0.5em
+    {\@date \par}
+  \end{center}\vskip 1em
+}
+
+% Author/affiliation helpers used in NeurIPS templates (kept simple here).
+\providecommand{\And}{\quad}
+\providecommand{\AND}{\\}
+
+\endinput
