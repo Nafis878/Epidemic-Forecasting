@@ -2,6 +2,32 @@
 
 A running log of changes during the NeurIPS upgrade sprint. Newest first.
 
+## Calibration audit — reconcile reported coverage with the leaderboard
+An audit flagged an apparent contradiction: this file reported `mist_v2 + ACI → cov-50
+0.506`, while `results/leaderboard_v2.csv` shows `cov-50 0.439`. **Investigation: there is
+no pipeline bug.** ACI is applied end-to-end — `run_benchmark_v2.py` hands the
+`OnlineConformalModel`-wrapped stack to the back-tester before it runs (the leaderboard's
+`mist_v2` cov differs from `mist_no_aci`, and MAE is identical because ACI only moves the
+tails). The two numbers simply measure **different panels**: 0.506 was the 3 high-count
+evaluation locations (US/CA/NY); 0.439 is the full 53-location panel, which is dominated by
+small-count states.
+
+We tested whether pooling ACI's width multipliers across the panel (instead of resetting
+per location) would reach nominal cov-50. It does the opposite for the 50% interval: letting
+the asymmetric, one-sided adaptation fully converge drives **cov-50 to ~0.42** (its true
+equilibrium on this panel) while improving cov-95 to ~0.937 — and raising overall WIS to
+88.9, **above ARIMA's 88.5**. So on the full panel MIST *cannot* be calibrated to cov-50≈0.50
+**and** beat ARIMA on WIS simultaneously; its inner quantiles are overconfident and widening
+them costs the (thin) ARIMA win. Per the sprint's >5%/stop rule we **did not** adopt that
+change.
+
+**Resolution (honest reporting, best WIS retained):** keep the per-location ACI
+configuration (overall WIS 84.8 < ARIMA 88.5; cov-95 0.905; cov-50 0.439) and correct this
+log to report the **panel** coverage everywhere, explicitly labelling 0.506 as the
+3-location figure. The 50% interval being mildly overconfident on small-count states is
+stated as a known limitation rather than smoothed over. Leaderboard, phase, DM, and figure
+artifacts are unchanged (they already reflect the per-location ACI run).
+
 ## Phase 5 — Paper-ready figures
 `evaluation/figures_paper.py` + `evaluation/run_figures.py`; a `last_attn` hook was
 added to `MechanisticAttention` to expose attention weights.
@@ -24,7 +50,9 @@ added to `MechanisticAttention` to expose attention weights.
 
 ## Phase 4 — Evaluation depth (full ~53-location panel, 2023-24)
 Headline: on the **full panel**, **mist_v2 (WIS 84.8) beats ARIMA (88.5)** overall
-while well-calibrated (cov-95 0.905), and is **best in Rising (51.2 vs 61.6) and Peak
+with cov-95 well-calibrated (0.905) but the inner 50% interval mildly overconfident
+(cov-50 0.439 — honest panel value, see the calibration-audit entry at the top), and is
+**best in Rising (51.2 vs 61.6) and Peak
 (152.8 vs 179.2)**, near-tying ARIMA in Declining (87.5 vs 81.4 — the blend closed
 the gap from 117.8). (Full-panel WIS is lower than the 3-location numbers because the
 panel is dominated by small-count states; rankings are what matter.)
@@ -107,10 +135,14 @@ with ACI calibration applied to every variant; lower is better.
   coverage feedback (queried via `get_vintage`). Made the adaptation **one-sided**
   (separate multipliers per tail) because epidemic miscoverage is asymmetric (the
   median under-predicts rising waves), which keeps intervals tight (better WIS).
-  Result on the 3 evaluation locations:
+  Result **on the 3 high-count evaluation locations** (US/CA/NY):
   **MIST → MIST+ACI: cov-50 0.301→0.506, cov-95 0.724→0.933, ECE 0.162→0.055**,
-  with WIS *improving* (uncalibrated base 1177 → ~1030). Both coverages now within
-  ~0.02 of nominal.
+  with WIS *improving* (uncalibrated base 1177 → ~1030). On these high-count series
+  both coverages land within ~0.02 of nominal. **Caveat (see the calibration-audit entry
+  at the top):** on the full 53-location panel — dominated by small-count states — ACI
+  brings cov-95 to ~0.905 but the inner 50% interval stays mildly overconfident
+  (cov-50 ~0.44, not 0.50). The 0.506 figure above is the 3-location number, **not** the
+  panel headline.
 - **2.3 Phase-conditioned uncertainty** — achieved *by construction*: ACI widens
   precisely when misses spike (the rising/peak phases), so per-phase ECE drops most
   there (Peak 0.398→0.187, Rising 0.260→0.189) without a separate variance head.
