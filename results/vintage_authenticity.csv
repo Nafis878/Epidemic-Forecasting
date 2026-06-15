@@ -1,0 +1,2 @@
+source,signal,cells,locations,mean_issues_per_ref,max_issues_per_ref,pct_revised,mean_rel_revision,genuine_vintage
+nhsn,flu_hosp_admissions,4770,52,38.28763102725367,70,0.9890985324947589,0.07832087118017464,True

@@ -11,6 +11,7 @@ WIS-optimal asymmetric ACI) is *reported*, not gated to a nominal level it was n
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 
@@ -62,6 +63,45 @@ def _checks() -> list[tuple[str, bool, str]]:
     out.append((f"per-location cov-50 reported (not gated) = {pl_c50:.3f}", True,
                 f"{pl_c50:.3f} (inner interval tight by WIS-optimal ACI design)"))
 
+    out.extend(_hybrid_checks())
+    return out
+
+
+def _hybrid_checks() -> list[tuple[str, bool, str]]:
+    """Gate the multi-season hybrid claim *honestly* (only if artifacts exist).
+
+    We never assert the hybrid wins; we assert the recorded verdict is internally
+    consistent and consistent with the leaderboard, so the paper cannot claim
+    something the artifacts contradict.
+    """
+    out: list[tuple[str, bool, str]] = []
+    ms_path = os.path.join(RES, "multiseason_summary.csv")
+    vd_path = os.path.join(RES, "hybrid_verdict.json")
+    if not (os.path.exists(ms_path) and os.path.exists(vd_path)):
+        out.append(("multi-season hybrid artifacts present (run reproduce.py to generate)",
+                    True, "skipped — quantiles_long not yet aggregated"))
+        return out
+
+    ms = pd.read_csv(ms_path).set_index("model")
+    need = {"stack_phase_conformal", "stack_phase", "stack_global",
+            "ens_perf", "ens_median", "ens_mean", "mist_v2", "patchtst", "tft"}
+    out.append(("multiseason_summary has hybrid + ensembles + base models",
+                need <= set(ms.index), f"{len(ms)} models"))
+
+    with open(vd_path) as f:
+        v = json.load(f)
+    conds = v.get("conditions", {})
+    earned = bool(v.get("earned"))
+    consistent = earned == all(conds.values())
+    out.append(("hybrid_verdict internally consistent (earned == AND of conditions)",
+                consistent, f"earned={earned}, conds={conds}"))
+
+    # If 'earned', the hybrid must actually be the season-unweighted leader.
+    if "stack_phase_conformal" in ms.index:
+        hybrid_rank = int(ms.loc["stack_phase_conformal", "rank_unweighted"])
+        ok = (hybrid_rank == 1) if earned else True
+        out.append(("verdict matches leaderboard (earned => hybrid is rank-1 unweighted)",
+                    ok, f"earned={earned}, hybrid rank={hybrid_rank}"))
     return out
 
 

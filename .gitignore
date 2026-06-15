@@ -7,6 +7,13 @@ __pycache__/
 
 # Versioned store (regenerable via `python -m ingestion.nhsn`)
 data/store/*.parquet
+# Genuine-vintage store (regenerated on Colab via ingestion.vintage_delphi)
+data/store_genuine/
+
+# Large / ephemeral run artifacts (regenerable via scripts/reproduce.py)
+results/*.parquet
+results/*.log
+results/run_profile.txt
 
 # Claude Code harness artifacts
 .claude/

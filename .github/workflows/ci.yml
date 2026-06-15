@@ -1,0 +1,41 @@
+name: ci
+
+# Reviewers value a green, reproducible CI. This runs the quick profile end-to-end
+# (which regenerates the multi-season artifacts the integration tests read) and
+# then the full test suite, on every push and PR.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Quick reproduction (validates the pipeline, not paper numbers)
+        run: python scripts/reproduce.py --quick --n-boot 200
+
+      - name: Run test suite
+        run: python -m pytest -q
+
+      - name: Reproducibility gate
+        run: python -m evaluation.assert_reproducibility
+
+      - name: Vintage authenticity report
+        run: python -m evaluation.vintage_report

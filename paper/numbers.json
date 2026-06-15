@@ -24,5 +24,22 @@
   "season_2023_mist": 84.8,
   "season_2023_arima": 88.5,
   "season_2024_mist": 221.6,
-  "season_2024_arima": 227.2
+  "season_2024_arima": 227.2,
+  "season_mist_mean": 150.1,
+  "season_arima_mean": 187.1,
+  "season_tft_mean": 118.5,
+  "season_patch_mean": 114.2,
+  "ms_hybrid_wis": 150.5,
+  "ms_ensperf_wis": 152.4,
+  "ms_ensmedian_wis": 110.4,
+  "ms_enstrimmed_wis": 107.1,
+  "ms_ensmean_wis": 125.3,
+  "ms_patchtst_wis": 114.2,
+  "ms_tft_wis": 118.5,
+  "ms_mistms_wis": 154.2,
+  "ms_hybrid_cov50": 0.588,
+  "ms_hybrid_cov95": 0.96,
+  "hybrid_earned": false,
+  "hybrid_best_base": "PatchTST",
+  "hybrid_strongest_competitor": "Ensemble (trimmed)"
 }

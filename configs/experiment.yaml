@@ -1,0 +1,54 @@
+# Experiment configuration for the multi-season MIST / hybrid benchmark.
+#
+# This is the documented, single-source description of the run. The `quick`
+# profile validates the whole pipeline in minutes and MUST NOT be a source of
+# paper numbers; only `full` artifacts may be reported. `scripts/reproduce.py`
+# reads this file; `evaluation/quantile_dump.py` reads the profiles.
+
+seasons:
+  # Canonical definitions also live in evaluation/run_seasons.py:SEASONS;
+  # tests assert these stay consistent.
+  "2022-23": {train_end: "2022-10-29", origins: ["2022-11-05", "2023-04-29"]}
+  "2023-24": {train_end: "2023-10-28", origins: ["2023-11-04", "2024-04-27"]}
+  "2024-25": {train_end: "2024-09-28", origins: ["2024-10-05", "2025-05-31"]}
+
+signal: flu_hosp_admissions
+source: flusight
+horizons: [1, 2, 3, 4]
+
+profiles:
+  quick:                       # pipeline validation ONLY — never reported
+    n_locations: 6             # first 6 panel locations
+    origin_stride: 3           # every 3rd weekly origin
+    epochs: {mist: 5, tft: 5, patchtst: 5}
+  full:                        # the only profile whose numbers may be reported
+    n_locations: null          # entire panel (53 flusight locations)
+    origin_stride: 1           # every weekly origin
+    epochs: {mist: 80, tft: 40, patchtst: 40}
+
+hybrid:
+  components: [mist_v2, tft, patchtst, arima, persistence]
+  eta: 0.05                    # Hedge temperature on the WIS scale
+  min_history: 30              # min prior matched forecasts before trusting weights
+
+bootstrap:
+  n_boot: 1000
+  seed: 0
+
+# --- Genuine-vintage, multi-disease benchmark (Delphi NHSN weekly; see
+# docs/neurips_gap_analysis.md S9). Real issue-dated revisions for flu/COVID/RSV.
+# Ingest the FULL week range: 2020-2024 weeks arrive as late-2024 backfill
+# (leakage-safe — usable once issued) and provide training history, while the
+# 2024-25/2025-26 TARGET weeks carry genuine contemporaneous revisions. Seasons
+# therefore train AFTER the backfill landed (train_end 2024-11-30).
+genuine:
+  store_dir: data/store_genuine
+  source: nhsn
+  ingest_time_values: "202001-202622"
+  diseases:
+    flu:   {signal: flu_hosp_admissions}
+    covid: {signal: covid_hosp_admissions}
+    rsv:   {signal: rsv_hosp_admissions}
+  seasons:
+    "2024-25": {train_end: "2024-11-30", origins: ["2024-12-07", "2025-05-31"]}
+    "2025-26": {train_end: "2025-09-27", origins: ["2025-10-04", "2026-05-30"]}

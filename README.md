@@ -1,8 +1,19 @@
 # MIST: Mechanistic-Informed Spatio-Temporal Transformer
 ## for Epidemic Forecasting
 
-[![tests](https://img.shields.io/badge/tests-56%20passing-brightgreen)](tests/)
+[![tests](https://img.shields.io/badge/tests-85%20passing-brightgreen)](tests/)
 [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+> **Status / honest headline (read `docs/neurips_gap_analysis.md`).** This repo is being
+> upgraded from a single-season MIST model into a *leakage-safe, multi-season, multi-disease
+> forecasting benchmark*. The decisive multi-season result is that **no single model
+> generalises**: MIST wins only its development season (2023-24) and is 3rd of 4 across seasons,
+> while a **trimmed-mean ensemble is the strongest forecaster** (107.1 vs the median ensemble's
+> 110.4 — significant under a clustered bootstrap + Holm-DM), and a sophisticated phase-gated
+> conformal hybrid does *not* beat it. Genuine issue-dated vintages (Delphi NHSN, flu/COVID/RSV)
+> and the multi-disease run are in progress (`docs/COLAB.md`). The single-season MIST tables
+> below are a real but **secondary** result; treat the benchmark + comparative findings as the
+> contribution.
 
 ## Overview
 
@@ -10,12 +21,12 @@ MIST is a transformer-based **quantile** forecaster for real-time influenza
 hospitalisation prediction. It injects epidemiological structure — Rₜ-guided mechanistic
 attention, a phase-gated mixture-of-experts, multi-resolution patching, and an Rₜ-conditioned
 blend — into a panel forecaster operating over **53 US locations**, then wraps the output in a
-per-location **Adaptive Conformal Inference** calibrator for distribution-shift-robust
-coverage. Against competing baselines MIST achieves the best overall WIS (**84.8** vs ARIMA
-88.5) and the best **rising-phase** WIS (**51.2** vs ARIMA 61.6) — the rising phase being the
-decision window of highest public-health value — across the 2022-23, 2023-24, and 2024-25 flu
-seasons, with each component's contribution confirmed by Diebold-Mariano significance tests and
-a 4-component ablation.
+per-location **Adaptive Conformal Inference** calibrator for distribution-shift-robust coverage.
+On its **development season (2023-24)** MIST attains the best overall WIS among competing single
+models (**84.8** vs ARIMA 88.5) with its largest edge in the rising phase (**51.2** vs ARIMA
+61.6). **Across all three seasons, however, MIST does not generalise** (it ranks 3rd of 4; see the
+status note above and `docs/neurips_gap_analysis.md`) — which is what motivates the benchmark and
+the ensemble/hybrid comparison that are this project's actual contribution.
 
 ## Pipeline
 
