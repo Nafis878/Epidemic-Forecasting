@@ -29,6 +29,30 @@ models (**84.8** vs ARIMA 88.5) with its largest edge in the rising phase (**51.
 status note above and `docs/neurips_gap_analysis.md`) — which is what motivates the benchmark and
 the ensemble/hybrid comparison that are this project's actual contribution.
 
+## Run on Colab (genuine-vintage RAF benchmark)
+
+The decisive genuine multi-disease run trains on a GPU. It needs a free **Delphi
+Epidata** API key, which is **never stored in this repo** — you provide it via Colab
+Secrets so nothing secret is committed.
+
+1. Runtime → Change runtime type → **GPU**.
+2. Left sidebar → **key icon (Secrets)** → add a secret named `DELPHI_API_KEY`
+   (register free at <https://api.delphi.cmu.edu/epidata/admin/registration_form>),
+   enable notebook access.
+3. Run:
+
+   ```python
+   !git clone https://github.com/Nafis878/Epidemic-Forecasting.git
+   %cd Epidemic-Forecasting
+   !pip install -q -r requirements.txt
+   !python scripts/colab_run.py     # ingest genuine vintages → full run → RAF verdict
+   !cat results/raf_verdict.json
+   ```
+
+`scripts/colab_run.py` reads the key from the `DELPHI_API_KEY` env var or Colab
+Secrets (never from source). `results/raf_verdict.json` → `earned` is the main-track
+gate (see `docs/neurips_gap_analysis.md`).
+
 ## Pipeline
 
 ```mermaid
