@@ -72,15 +72,18 @@ def build() -> dict:
                 d["dm_p_vs_arima_rising_source"] = fname
                 break
 
-    # Per-season mist/arima WIS.
-    piv = sw.pivot_table(index="season", columns="model", values="wis")
+    # Per-season base-model WIS. Prefer the common-mask leaderboard, so the
+    # standalone base table and full leaderboard share the same paired grid.
+    sw_base_path = os.path.join(RES, "season_leaderboard_common.csv")
+    sw_base = pd.read_csv(sw_base_path) if os.path.exists(sw_base_path) else sw
+    piv = sw_base.pivot_table(index="season", columns="model", values="wis")
     for tag, season in [("2022", "2022-23"), ("2023", "2023-24"), ("2024", "2024-25")]:
         if season in piv.index:
             if "mist_v2" in piv.columns:
                 d[f"season_{tag}_mist"] = _round(piv.loc[season, "mist_v2"], 1)
             if "arima" in piv.columns:
                 d[f"season_{tag}_arima"] = _round(piv.loc[season, "arima"], 1)
-    # Season-unweighted means per base model (real full-run, from season_wis.csv).
+    # Season-unweighted means per base model.
     means = piv.mean(axis=0)
     for col, key in [("mist_v2", "season_mist_mean"), ("arima", "season_arima_mean"),
                      ("tft", "season_tft_mean"), ("patchtst", "season_patch_mean")]:
@@ -90,7 +93,12 @@ def build() -> dict:
     # --- Multi-season hybrid/ensemble numbers: ONLY from a full run. ---
     profile_path = os.path.join(RES, "run_profile.txt")
     profile = open(profile_path).read().strip() if os.path.exists(profile_path) else "unknown"
-    ms_path = os.path.join(RES, "multiseason_summary.csv")
+    # Paper-facing multi-season claims use the paired/common-mask table when it
+    # exists, so every model is scored on exactly the same forecast keys. The
+    # available-case table remains a diagnostic artifact.
+    ms_path = os.path.join(RES, "multiseason_common_summary.csv")
+    if not os.path.exists(ms_path):
+        ms_path = os.path.join(RES, "multiseason_summary.csv")
     vd_path = os.path.join(RES, "hybrid_verdict.json")
     if profile == "full" and os.path.exists(ms_path):
         ms = pd.read_csv(ms_path).set_index("model")
@@ -143,13 +151,15 @@ _MACROS = {
 
 
 def emit_season_base_table(out_path: str) -> bool:
-    """Write paper/season_base_auto.tex from the full-run ``season_wis.csv``.
+    """Write paper/season_base_auto.tex from the paired season leaderboard.
 
     This is the honest multi-season base-model leaderboard (real, committed
     full-run numbers — independent of the hybrid dump): it is the table that
     shows MIST does not generalise across seasons.
     """
-    sw_path = os.path.join(RES, "season_wis.csv")
+    sw_path = os.path.join(RES, "season_leaderboard_common.csv")
+    if not os.path.exists(sw_path):
+        sw_path = os.path.join(RES, "season_wis.csv")
     if not os.path.exists(sw_path):
         return False
     sw = pd.read_csv(sw_path)
@@ -180,9 +190,12 @@ def emit_season_base_table(out_path: str) -> bool:
 
 
 def emit_leaderboard_table(out_path: str) -> bool:
-    """Write paper/tables_auto.tex: the multi-season WIS leaderboard (single-sourced)."""
-    ms_path = os.path.join(RES, "multiseason_summary.csv")
-    sl_path = os.path.join(RES, "season_leaderboard.csv")
+    """Write paper/tables_auto.tex: the paired multi-season WIS leaderboard."""
+    ms_path = os.path.join(RES, "multiseason_common_summary.csv")
+    sl_path = os.path.join(RES, "season_leaderboard_common.csv")
+    if not (os.path.exists(ms_path) and os.path.exists(sl_path)):
+        ms_path = os.path.join(RES, "multiseason_summary.csv")
+        sl_path = os.path.join(RES, "season_leaderboard.csv")
     if not (os.path.exists(ms_path) and os.path.exists(sl_path)):
         return False
     ms = pd.read_csv(ms_path)

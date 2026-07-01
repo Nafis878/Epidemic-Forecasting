@@ -58,6 +58,11 @@ _KEY = ["season", "forecast_date", "location", "horizon", "reference_date",
         "y_true", "phase_origin"]
 
 
+def key_cols(df: pd.DataFrame) -> list[str]:
+    """Forecast identity columns, including ``disease`` for multi-disease dumps."""
+    return (["disease"] if "disease" in df.columns else []) + _KEY
+
+
 def load_long(path: str = LONG_PATH) -> pd.DataFrame:
     df = pd.read_parquet(path)
     df["forecast_date"] = pd.to_datetime(df["forecast_date"])
@@ -67,7 +72,7 @@ def load_long(path: str = LONG_PATH) -> pd.DataFrame:
 
 def _wide(long: pd.DataFrame) -> pd.DataFrame:
     """Pivot to one row per (forecast x model) with quantile levels as columns."""
-    idx = ["model"] + _KEY
+    idx = ["model"] + key_cols(long)
     w = long.pivot_table(index=idx, columns="quantile", values="value")
     return w.sort_index(axis=1)
 
@@ -98,19 +103,24 @@ def per_forecast_metrics(long: pd.DataFrame) -> pd.DataFrame:
 
 
 def _perf_weights_by_origin(base_wis: pd.DataFrame, components, eta: float):
-    """Map each origin date -> Hedge weights over components from strictly-prior loss."""
-    origins = sorted(pd.to_datetime(base_wis["forecast_date"].unique()))
-    ref = pd.to_datetime(base_wis["reference_date"])
+    """Map each origin (and disease, if present) -> Hedge weights from prior loss."""
     by_origin: dict[pd.Timestamp, np.ndarray] = {}
-    for t in origins:
-        prior = base_wis[ref < t]
-        if prior.empty:
-            by_origin[t] = np.full(len(components), 1.0 / len(components))
-            continue
-        means = prior.groupby("model")["wis"].mean()
-        losses = np.array([means.get(m, np.nan) for m in components])
-        by_origin[t] = (np.full(len(components), 1.0 / len(components))
-                        if np.isnan(losses).any() else hedge_weights(losses, eta))
+    group_cols = ["disease"] if "disease" in base_wis.columns else []
+    grouped = base_wis.groupby(group_cols) if group_cols else [((), base_wis)]
+    for gkey, sub in grouped:
+        origins = sorted(pd.to_datetime(sub["forecast_date"].unique()))
+        ref = pd.to_datetime(sub["reference_date"])
+        prefix = (gkey,) if group_cols and not isinstance(gkey, tuple) else tuple(gkey)
+        for t in origins:
+            prior = sub[ref < t]
+            key = (*prefix, pd.Timestamp(t)) if group_cols else pd.Timestamp(t)
+            if prior.empty:
+                by_origin[key] = np.full(len(components), 1.0 / len(components))
+                continue
+            means = prior.groupby("model")["wis"].mean()
+            losses = np.array([means.get(m, np.nan) for m in components])
+            by_origin[key] = (np.full(len(components), 1.0 / len(components))
+                              if np.isnan(losses).any() else hedge_weights(losses, eta))
     return by_origin
 
 
@@ -126,15 +136,18 @@ def build_ensembles(long: pd.DataFrame, components=ENSEMBLE_COMPONENTS,
 
     w = _wide(base)
     levels = w.columns.to_numpy(dtype=float)
+    keys = key_cols(base)
     rows = []
-    for key, sub in w.groupby(level=_KEY):
-        mat = sub.droplevel(_KEY)                          # index = model
+    for key, sub in w.groupby(level=keys):
+        mat = sub.droplevel(keys)                          # index = model
         present = [m for m in components if m in mat.index]
         if not present:
             continue
         B = mat.loc[present].to_numpy(dtype=float)
-        keyd = dict(zip(_KEY, key))
-        wts = weights_by_origin.get(pd.Timestamp(keyd["forecast_date"]))
+        keyd = dict(zip(keys, key if isinstance(key, tuple) else (key,)))
+        origin_key = ((keyd["disease"], pd.Timestamp(keyd["forecast_date"]))
+                      if "disease" in keyd else pd.Timestamp(keyd["forecast_date"]))
+        wts = weights_by_origin.get(origin_key)
         if wts is not None and len(present) != len(components):
             wts = np.array([wts[components.index(m)] for m in present])  # realign to present
         combos = {

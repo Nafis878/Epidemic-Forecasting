@@ -20,11 +20,11 @@ profiles:
   quick:                       # pipeline validation ONLY — never reported
     n_locations: 6             # first 6 panel locations
     origin_stride: 3           # every 3rd weekly origin
-    epochs: {mist: 5, tft: 5, patchtst: 5}
+    epochs: {mist: 5, tft: 5, patchtst: 5, raf: 5}
   full:                        # the only profile whose numbers may be reported
     n_locations: null          # entire panel (53 flusight locations)
     origin_stride: 1           # every weekly origin
-    epochs: {mist: 80, tft: 40, patchtst: 40}
+    epochs: {mist: 80, tft: 40, patchtst: 40, raf: 40}   # raf = revision-aware forecaster
 
 hybrid:
   components: [mist_v2, tft, patchtst, arima, persistence]
@@ -50,5 +50,8 @@ genuine:
     covid: {signal: covid_hosp_admissions}
     rsv:   {signal: rsv_hosp_admissions}
   seasons:
-    "2024-25": {train_end: "2024-11-30", origins: ["2024-12-07", "2025-05-31"]}
+    # Earliest issue with all current NHSN flu/COVID/RSV signals is epiweek
+    # 202451 (week ending 2024-12-21), so the first all-disease origin is the
+    # following week.
+    "2024-25": {train_end: "2024-12-21", origins: ["2024-12-28", "2025-05-31"]}
     "2025-26": {train_end: "2025-09-27", origins: ["2025-10-04", "2026-05-30"]}

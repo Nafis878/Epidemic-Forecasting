@@ -177,8 +177,7 @@ with ACI calibration applied to every variant; lower is better.
   `post_mandatory` flag, MMWR round-trip, ILINet schema with real issue dates).
 
 ## Phase 0 — Repo setup
-- Initialised git repository and connected it to the remote
-  `https://github.com/Nafis878/Epidemic-Forecasting`.
+- Initialised git repository and connected it to the private development remote.
 - Added `.gitignore` (ignores `data/store/*.parquet` — regenerable via
   `python -m ingestion.nhsn` — plus `__pycache__/`, caches, editor dirs).
 - Added this `CHANGES.md`.

@@ -8,8 +8,9 @@
 > upgraded from a single-season MIST model into a *leakage-safe, multi-season, multi-disease
 > forecasting benchmark*. The decisive multi-season result is that **no single model
 > generalises**: MIST wins only its development season (2023-24) and is 3rd of 4 across seasons,
-> while a **trimmed-mean ensemble is the strongest forecaster** (107.1 vs the median ensemble's
-> 110.4 — significant under a clustered bootstrap + Holm-DM), and a sophisticated phase-gated
+> while a **trimmed-mean ensemble is the strongest forecaster** on the paired common mask
+> (109.9 vs the median ensemble's 113.2, significant under clustered bootstrap + Holm-DM;
+> vs PatchTST 116.9 under bootstrap + BH-DM, not Holm-DM), and a sophisticated phase-gated
 > conformal hybrid does *not* beat it. Genuine issue-dated vintages (Delphi NHSN, flu/COVID/RSV)
 > and the multi-disease run are in progress (`docs/COLAB.md`). The single-season MIST tables
 > below are a real but **secondary** result; treat the benchmark + comparative findings as the
@@ -178,7 +179,7 @@ view; we report it as-is rather than tuning cov-50 to nominal at the cost of the
 @inproceedings{mist2025neurips,
   title     = {MIST: Mechanistic-Informed Spatio-Temporal Transformer
                for Epidemic Forecasting},
-  author    = {Nafis878},
+  author    = {Anonymous},
   booktitle = {Advances in Neural Information Processing Systems},
   year      = {2025}
 }

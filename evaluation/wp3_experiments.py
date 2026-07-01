@@ -1,6 +1,6 @@
 """WP3 bounded win attempt: can any honest combiner beat the median-of-7 ensemble?
 
-The full run showed the median over all base models (~110.4 season-unweighted WIS)
+The paired rerun showed the trimmed ensemble (~109.9 season-unweighted WIS)
 is the robust winner, and that Hedge performance-weighting cannot beat equal
 weight. This script tests a small set of leakage-safe candidates against that
 bar, so the "iterate-to-win" decision is made on evidence:

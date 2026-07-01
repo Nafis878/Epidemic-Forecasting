@@ -12,15 +12,15 @@ before zipping. Do **not** commit the anonymised zip into the public repo; build
 
 | File | Line (approx.) | Content | Action |
 |---|---|---|---|
-| `LICENSE` | 3 | `Copyright (c) 2025 Nafis878` | Replace name with `Anonymous Authors` (or an MIT "the authors" form) |
-| `README.md` | ~170 | BibTeX `author = {Nafis878}` | Replace with `author = {Anonymous}`; drop any repo URL |
-| `CHANGES.md` | ~181 | `https://github.com/Nafis878/Epidemic-Forecasting` | Remove the URL |
+| `LICENSE` | 3 | author/copyright name | Replace name with `Anonymous Authors` (or an MIT "the authors" form) |
+| `README.md` | citation block | author name | Replace with `author = {Anonymous}`; drop any repo URL |
+| `CHANGES.md` | repo setup notes | private/public repo URL | Remove the URL |
 | `paper/mist_neurips.tex` | — | already `\author{Anonymous}`, no URL | none |
 
 Search the whole tree before zipping (case-insensitive):
 
 ```bash
-grep -rniE "nafis|github\.com/Nafis|your-name-here" . --exclude-dir=.git
+grep -rniE "author-name|github\.com/.+/Epidemic-Forecasting|your-name-here" . --exclude-dir=.git
 ```
 
 The command should return **nothing** after edits.
@@ -65,7 +65,7 @@ python -m pip install -r requirements.txt
 python scripts/reproduce.py --quick           # pipeline + artifacts in ~1-2 min
 python -m pytest -q                            # all tests pass
 python -m evaluation.assert_reproducibility    # gate exits 0
-grep -rniE "nafis|github\.com/Nafis" . --exclude-dir=.git    # must be empty
+grep -rniE "author-name|github\.com/.+/Epidemic-Forecasting" . --exclude-dir=.git    # must be empty
 ```
 
 For the camera-ready / rebuttal, regenerate the reportable numbers with the full profile

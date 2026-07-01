@@ -36,7 +36,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from evaluation.bootstrap import block_bootstrap_ci, pairwise_dm_adjusted  # noqa: E402
 from evaluation.ensembles import COMPONENTS, ENSEMBLE_NAMES, LONG_PATH, per_forecast_metrics  # noqa: E402
-from evaluation.run_multiseason import assemble_all  # noqa: E402
+from evaluation.run_multiseason import assemble_all, common_mask_metrics  # noqa: E402
 
 HERE = os.path.dirname(__file__)
 RES = os.path.abspath(os.path.join(HERE, "..", "results"))
@@ -56,7 +56,7 @@ def _cov50(metrics: pd.DataFrame) -> pd.Series:
 
 
 def compute(path: str = LONG_PATH, n_boot: int = 1000, seed: int = 0) -> dict:
-    metrics = per_forecast_metrics(assemble_all(path))
+    metrics = common_mask_metrics(per_forecast_metrics(assemble_all(path)))
     wis = _unweighted_wis(metrics)
     cov = _cov50(metrics)
     models = set(metrics["model"].unique())

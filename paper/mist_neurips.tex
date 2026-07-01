@@ -1,6 +1,6 @@
 \documentclass{article}
 
-% Replace neurips_stub with the official neurips_2025.sty before submission.
+% Replace neurips_stub with the official neurips_2026.sty before submission.
 \usepackage[preprint]{neurips_stub}
 
 \usepackage[utf8]{inputenc}
@@ -57,11 +57,12 @@ On this benchmark our own mechanistic transformer, MIST, wins only its developme
 finding, a rigorous \textbf{comparison of combination strategies}, evaluated under a pre-registered,
 falsifiable, multiplicity-controlled criterion. The clearest result is actionable: the
 \textbf{trimmed-mean ensemble} (drop the per-quantile extremes, average the rest) is the strongest
-forecaster at season-unweighted WIS \msEnsTrimmedWIS{}, \emph{significantly} better than the
-\textbf{median ensemble} (\msEnsMedianWIS{}; the default deployed by the CDC FluSight and COVID-19
-Forecast Hubs) and than the best single model (PatchTST \msPatchTSTWIS{}), surviving a
-$(\text{forecast date},\text{location})$-clustered bootstrap and Holm-adjusted Diebold--Mariano
-tests. Conversely, a \textbf{phase-gated, online-learning, conformal hybrid} we designed to exploit
+forecaster on the paired common-mask benchmark at season-unweighted WIS \msEnsTrimmedWIS{}.
+It is significantly better than the \textbf{median ensemble} (\msEnsMedianWIS{}; the default
+deployed by the CDC FluSight and COVID-19 Forecast Hubs) under both clustered bootstrap and
+Holm-adjusted Diebold--Mariano tests, and better than the best single model (PatchTST
+\msPatchTSTWIS{}) under clustered bootstrap and BH-adjusted DM but not Holm-adjusted DM.
+Conversely, a \textbf{phase-gated, online-learning, conformal hybrid} we designed to exploit
 regime structure does \emph{not} beat simple trimming (\texttt{earned}$=\hybridEarned$ against the
 pre-registered criterion): on this benchmark robust aggregation beats sophistication, and prior-season
 performance-weighting fails to transfer. We report this honestly rather than as a state-of-the-art
@@ -165,9 +166,9 @@ not as a result to be explained away.
 
 \begin{table}[t]
 \centering
-\caption{Multi-season base-model leaderboard (mean WIS; lower is better; full-panel, full-run).
+\caption{Multi-season base-model leaderboard (mean WIS; lower is better; paired common forecast mask).
 MIST wins only its development season 2023-24 and is third of four on the season-unweighted mean.
-Generated from \texttt{results/season\_wis.csv}.}
+Generated from \texttt{results/season\_leaderboard\_common.csv}.}
 \label{tab:base}
 \input{season_base_auto.tex}
 \end{table}
@@ -224,16 +225,19 @@ the honest comparative study, not a state-of-the-art claim. The current released
 \section{Results}
 
 \paragraph{The trimmed-mean ensemble wins.} Table~\ref{tab:hybrid} reports season-unweighted WIS for
-all base models, ensembles, and hybrid ablations (numbers come exclusively from a \texttt{-{}-full}
-run; quick-pipeline numbers validate plumbing only and are never reported). The strongest forecaster
+all base models, ensembles, and hybrid ablations on the paired common forecast mask (numbers come
+exclusively from a \texttt{-{}-full} run; quick-pipeline numbers validate plumbing only and are never
+reported). The paired mask contains 18{,}018 forecast cells and drops 414 incomplete 2024-25 cells
+where at least one model did not produce an aligned forecast. The strongest forecaster
 is the \textbf{trimmed-mean ensemble} (\msEnsTrimmedWIS{}) --- discard the highest and lowest
 component at each quantile level and average the rest. It significantly beats the \textbf{median
-ensemble} (\msEnsMedianWIS{}; the hubs' deployed default), the best single model (PatchTST
-\msPatchTSTWIS{}), and the plain mean ensemble (\msEnsMeanWIS{}, dragged down by weak members that
-trimming discards). The advantage over the median ensemble and PatchTST survives a
-$(\text{forecast date},\text{location})$-clustered bootstrap (95\% CIs excluding zero) and
-Holm-adjusted DM tests (\texttt{tables/bootstrap\_ci.csv},
-\texttt{tables/multiseason\_dm\_adjusted.csv}). The lesson is practical: \emph{robust} aggregation,
+ensemble} (\msEnsMedianWIS{}; the hubs' deployed default) under clustered bootstrap and Holm-DM,
+and it beats the best single model (PatchTST \msPatchTSTWIS{}) under clustered bootstrap and
+BH-adjusted DM, although the PatchTST comparison does not survive Holm correction. It also beats
+the plain mean ensemble (\msEnsMeanWIS{}, dragged down by weak members that trimming discards).
+We report both corrected tests (\texttt{tables/bootstrap\_ci\_common.csv},
+\texttt{tables/multiseason\_dm\_adjusted\_common.csv}). The lesson is practical:
+\emph{robust} aggregation,
 not a more elaborate model, is what improves on the standard ensemble.
 
 \paragraph{Sophistication does not pay: the hybrid loses.} The phase-gated, online-learning,
@@ -248,9 +252,9 @@ headline.
 
 \begin{table}[t]
 \centering
-\caption{Multi-season leaderboard: base models, ensembles, and hybrid ablations
-(season-unweighted WIS; the winning combiner in bold). Generated from
-\texttt{results/multiseason\_summary.csv} on a \texttt{-{}-full} run; a quick run leaves a
+\caption{Multi-season paired leaderboard: base models, ensembles, and hybrid ablations
+(season-unweighted WIS on the common forecast mask; the winning combiner in bold). Generated from
+\texttt{results/multiseason\_common\_summary.csv} on a \texttt{-{}-full} run; a quick run leaves a
 placeholder so no provisional number is mistaken for a result.}
 \label{tab:hybrid}
 \IfFileExists{tables_auto.tex}{\input{tables_auto.tex}}{%

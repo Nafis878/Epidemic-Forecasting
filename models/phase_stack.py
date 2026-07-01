@@ -45,7 +45,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from evaluation.ensembles import COMPONENTS, ETA, _KEY, _wide, per_forecast_wis
+from evaluation.ensembles import COMPONENTS, ETA, _wide, key_cols, per_forecast_wis
 from evaluation.metrics import DEFAULT_QUANTILES
 from models.ensemble import hedge_weights, weighted_combine
 
@@ -68,7 +68,8 @@ def _origin_weights(base_wis: pd.DataFrame, components, eta: float, by_phase: bo
     eqw = np.full(n, 1.0 / n)
     out: dict = {}
 
-    group_cols = ["horizon", "phase_origin"] if by_phase else ["horizon"]
+    group_cols = (["disease"] if "disease" in bw.columns else [])
+    group_cols += ["horizon", "phase_origin"] if by_phase else ["horizon"]
     for gkey, sub in bw.groupby(group_cols):
         origins = sorted(sub["forecast_date"].unique())
         ref = sub["reference_date"]
@@ -97,28 +98,33 @@ def _cqr_offsets(stack_wide: pd.DataFrame, levels: np.ndarray):
     fdates = pd.to_datetime(idx["forecast_date"]).to_numpy()
     rdates = pd.to_datetime(idx["reference_date"]).to_numpy()
     hor = idx["horizon"].to_numpy()
+    diseases = idx["disease"].to_numpy() if "disease" in idx.columns else None
     M = stack_wide.to_numpy(dtype=float)
 
     lo_idx = {a: np.argmin(np.abs(levels - a / 2.0)) for a in _ALPHAS}
     hi_idx = {a: np.argmin(np.abs(levels - (1.0 - a / 2.0))) for a in _ALPHAS}
 
     offsets: dict = {}
-    for h in np.unique(hor):
-        hm = hor == h
-        for t in np.unique(fdates[hm]):
-            cal = hm & (rdates < t)
-            key_base = (int(h), pd.Timestamp(t))
-            if cal.sum() < MIN_HISTORY:
-                offsets[key_base] = {a: 0.0 for a in _ALPHAS}
-                continue
-            ycal, Mcal = y[cal], M[cal]
-            od = {}
-            for a in _ALPHAS:
-                lo, hi = Mcal[:, lo_idx[a]], Mcal[:, hi_idx[a]]
-                scores = np.maximum(lo - ycal, ycal - hi)
-                lvl = min(1.0, np.ceil((len(scores) + 1) * (1 - a)) / len(scores))
-                od[a] = float(max(0.0, np.quantile(scores, lvl)))
-            offsets[key_base] = od
+    disease_values = np.unique(diseases) if diseases is not None else [None]
+    for dis in disease_values:
+        dm = np.ones(len(hor), dtype=bool) if diseases is None else (diseases == dis)
+        for h in np.unique(hor[dm]):
+            hm = dm & (hor == h)
+            for t in np.unique(fdates[hm]):
+                cal = hm & (rdates < t)
+                key_base = ((str(dis), int(h), pd.Timestamp(t))
+                            if diseases is not None else (int(h), pd.Timestamp(t)))
+                if cal.sum() < MIN_HISTORY:
+                    offsets[key_base] = {a: 0.0 for a in _ALPHAS}
+                    continue
+                ycal, Mcal = y[cal], M[cal]
+                od = {}
+                for a in _ALPHAS:
+                    lo, hi = Mcal[:, lo_idx[a]], Mcal[:, hi_idx[a]]
+                    scores = np.maximum(lo - ycal, ycal - hi)
+                    lvl = min(1.0, np.ceil((len(scores) + 1) * (1 - a)) / len(scores))
+                    od[a] = float(max(0.0, np.quantile(scores, lvl)))
+                offsets[key_base] = od
     return offsets
 
 
@@ -162,23 +168,26 @@ def build_stack(long: pd.DataFrame, *, components=COMPONENTS, eta: float = ETA,
     w = _wide(base)
     levels = w.columns.to_numpy(dtype=float)
     eqw = np.full(len(components), 1.0 / len(components))
+    keys = key_cols(base)
 
     # Pass 1: weighted combination per forecast.
     combined: dict[tuple, np.ndarray] = {}
-    for key, sub in w.groupby(level=_KEY):
-        mat = sub.droplevel(_KEY)
+    for key, sub in w.groupby(level=keys):
+        mat = sub.droplevel(keys)
         present = [m for m in components if m in mat.index]
         B = mat.loc[present].to_numpy(dtype=float)
-        keyd = dict(zip(_KEY, key))
+        keyt = key if isinstance(key, tuple) else (key,)
+        keyd = dict(zip(keys, keyt))
         h, t, p = int(keyd["horizon"]), pd.Timestamp(keyd["forecast_date"]), keyd["phase_origin"]
-        wkey = (h, p, t) if gate == "phase" else (h, t)
+        prefix = (keyd["disease"],) if "disease" in keyd else ()
+        wkey = (*prefix, h, p, t) if gate == "phase" else (*prefix, h, t)
         wts = weights.get(wkey, eqw)
         if len(present) != len(components):
             wts = np.array([wts[components.index(m)] for m in present])
         combined[key] = weighted_combine(B, wts)
 
     stack_wide = pd.DataFrame.from_dict(combined, orient="index", columns=levels)
-    stack_wide.index = pd.MultiIndex.from_tuples(combined.keys(), names=_KEY)
+    stack_wide.index = pd.MultiIndex.from_tuples(combined.keys(), names=keys)
 
     # Pass 2 (optional): CQR calibration from strictly-prior residuals.
     if conformal:
@@ -186,14 +195,17 @@ def build_stack(long: pd.DataFrame, *, components=COMPONENTS, eta: float = ETA,
         idx = stack_wide.index.to_frame(index=False)
         M = stack_wide.to_numpy(dtype=float)
         for i in range(len(M)):
-            key_base = (int(idx["horizon"].iloc[i]), pd.Timestamp(idx["forecast_date"].iloc[i]))
+            key_base = ((str(idx["disease"].iloc[i]), int(idx["horizon"].iloc[i]),
+                         pd.Timestamp(idx["forecast_date"].iloc[i]))
+                        if "disease" in idx.columns else
+                        (int(idx["horizon"].iloc[i]), pd.Timestamp(idx["forecast_date"].iloc[i])))
             M[i] = _apply_offsets(M[i], levels, offsets.get(key_base, {}))
         stack_wide = pd.DataFrame(M, index=stack_wide.index, columns=levels)
 
     # Melt back to long format.
     rows = []
     for key, vec in zip(stack_wide.index, stack_wide.to_numpy(dtype=float)):
-        keyd = dict(zip(_KEY, key))
+        keyd = dict(zip(keys, key if isinstance(key, tuple) else (key,)))
         for q, val in zip(levels, vec):
             rows.append({**keyd, "model": name, "quantile": float(q), "value": float(val)})
     out = pd.DataFrame(rows)

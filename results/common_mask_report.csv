@@ -1,0 +1,4 @@
+season,models_required,total_forecast_keys,common_forecast_keys,dropped_forecast_keys,common_fraction
+2022-23,14,5512,5512,0,1.0
+2023-24,14,5510,5510,0,1.0
+2024-25,14,7410,6996,414,0.9441295546558705

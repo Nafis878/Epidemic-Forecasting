@@ -48,6 +48,7 @@ DISEASE_SIGNALS = {
 
 _HERE = os.path.dirname(__file__)
 _CROSSWALK = os.path.abspath(os.path.join(_HERE, "..", "data", "crosswalk.csv"))
+_TERRITORY_GEO = {"pr": "72", "as": "60", "gu": "66", "mp": "69", "vi": "78"}
 
 
 def load_geo_map(path: str = _CROSSWALK) -> dict:
@@ -55,6 +56,7 @@ def load_geo_map(path: str = _CROSSWALK) -> dict:
     cw = pd.read_csv(path, dtype=str)
     m = {row["abbrev_lower"]: row["fips"] for _, row in cw.iterrows()
          if isinstance(row["abbrev_lower"], str)}
+    m.update(_TERRITORY_GEO)
     m["us"] = "US"                     # covidcast 'nation' geo_value is 'us'
     return m
 
@@ -205,10 +207,11 @@ def ingest_panel(store: VersionedStore, *, api_signal: str, signal: str,
     """
     start_ew, end_ew = (int(x) for x in time_values.split("-"))
     chunks = _ew_halfyear_chunks(start_ew, end_ew)
-    frames = []
     failed = 0
+    total_rows = 0
     targets = [("state", g) for g in states_lower] + [("nation", "us")]
     for geo_type, geo_value in targets:
+        frames = []
         geo_rows = 0
         for chunk in chunks:
             clo = chunk.split("-")[0]
@@ -228,18 +231,18 @@ def ingest_panel(store: VersionedStore, *, api_signal: str, signal: str,
                 frames.append(df)
                 geo_rows += len(df)
             time.sleep(sleep)
+        if frames:
+            geodf = pd.concat(frames, ignore_index=True).drop_duplicates(
+                ["source", "signal", "location", "reference_date", "issue_date"])
+            store.ingest(geodf)
+            total_rows += len(geodf)
         if verbose:
             print(f"    {geo_value:4s} {api_signal}: {geo_rows} revision rows")
     if failed:
         print(f"  WARNING: {failed} chunk(s) dropped after retries (rate limiting). "
               f"Set DELPHI_API_KEY to avoid throttling, then re-run — ingestion is "
               f"idempotent (duplicate revisions are de-duped).")
-    if not frames:
-        return 0
-    alldf = pd.concat(frames, ignore_index=True).drop_duplicates(
-        ["source", "signal", "location", "reference_date", "issue_date"])
-    store.ingest(alldf)
-    return len(alldf)
+    return total_rows
 
 
 def ingest_genuine_panel(store_dir: str = "data/store_genuine",
@@ -252,6 +255,7 @@ def ingest_genuine_panel(store_dir: str = "data/store_genuine",
     cw = pd.read_csv(crosswalk, dtype=str)
     states_lower = [a for a, f in zip(cw["abbrev_lower"], cw["fips"])
                     if isinstance(a, str) and f != "US"]
+    states_lower += [a for a, f in _TERRITORY_GEO.items() if f in set(cw["fips"].astype(str))]
     store = VersionedStore(store_dir=store_dir)
     counts = {}
     for disease in diseases:

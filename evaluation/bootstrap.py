@@ -35,7 +35,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 from evaluation.dm_test import dm_test  # noqa: E402
 from evaluation.ensembles import LONG_PATH  # noqa: E402
-from evaluation.run_multiseason import assemble_all  # noqa: E402
+from evaluation.run_multiseason import assemble_all, common_mask_metrics  # noqa: E402
 from evaluation.ensembles import per_forecast_metrics  # noqa: E402
 
 HERE = os.path.dirname(__file__)
@@ -44,9 +44,13 @@ TAB = os.path.abspath(os.path.join(HERE, "..", "tables"))
 _MATCH = ["season", "forecast_date", "location", "horizon", "reference_date"]
 
 
+def match_cols(metrics: pd.DataFrame) -> list[str]:
+    return (["disease"] if "disease" in metrics.columns else []) + _MATCH
+
+
 def _matched_wis(metrics: pd.DataFrame) -> pd.DataFrame:
     """Wide WIS table: one row per forecast, one column per model."""
-    return metrics.pivot_table(index=_MATCH, columns="model", values="wis")
+    return metrics.pivot_table(index=match_cols(metrics), columns="model", values="wis")
 
 
 def _leader(metrics: pd.DataFrame) -> str:
@@ -137,11 +141,25 @@ def run(path: str = LONG_PATH, focal: str | None = None,
     ci.to_csv(os.path.join(TAB, "bootstrap_ci.csv"), index=False)
     dm.to_csv(os.path.join(TAB, "multiseason_dm_adjusted.csv"), index=False)
 
+    common_metrics = common_mask_metrics(metrics)
+    common_focal = _leader(common_metrics)
+    ci_common = block_bootstrap_ci(common_metrics, focal=common_focal,
+                                   n_boot=n_boot, seed=seed)
+    dm_common = pairwise_dm_adjusted(common_metrics)
+    ci_common.to_csv(os.path.join(TAB, "bootstrap_ci_common.csv"), index=False)
+    dm_common.to_csv(os.path.join(TAB, "multiseason_dm_adjusted_common.csv"), index=False)
+
     print(f"=== block-bootstrap CI: focal = {focal} (mean WIS diff focal - other) ===")
     print(ci.round(3).to_string(index=False))
     print(f"\n=== pairwise DM (top rows; Holm/BH adjusted) ===")
     print(dm.head(8).round(4).to_string(index=False))
-    return {"ci": ci, "dm": dm, "focal": focal}
+    print(f"\n=== COMMON-MASK block-bootstrap CI: focal = {common_focal} ===")
+    print(ci_common.round(3).to_string(index=False))
+    print(f"\n=== COMMON-MASK pairwise DM (top rows; Holm/BH adjusted) ===")
+    print(dm_common.head(8).round(4).to_string(index=False))
+    return {"ci": ci, "dm": dm, "focal": focal,
+            "ci_common": ci_common, "dm_common": dm_common,
+            "focal_common": common_focal}
 
 
 if __name__ == "__main__":

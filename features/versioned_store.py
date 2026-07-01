@@ -167,6 +167,61 @@ class VersionedStore:
                 result[col] = pd.to_datetime(result[col])
         return result
 
+    # ------------------------------------------------------- revision triangle
+    def get_triangle(
+        self,
+        signal: str,
+        location: str,
+        forecast_date: DateLike,
+        source: Optional[str] = None,
+    ) -> pd.DataFrame:
+        """Return the full *revision triangle* knowable as of ``forecast_date``.
+
+        Unlike :meth:`get_vintage` (which collapses each ``reference_date`` to a
+        single as-of value), this returns **every** revision issued on or before
+        ``forecast_date`` — the substrate the revision-aware forecaster needs to
+        see *how* recent weeks are still settling. It is exactly
+        ``get_vintage(..., latest_only=False)`` with an added integer
+        ``issue_lag_weeks`` column ``= (issue_date - reference_date) / 7 days``
+        (>= 0 for genuine backfill), and it inherits the same anti-leakage
+        guarantee: no row with ``issue_date > forecast_date`` is ever returned.
+        """
+        tri = self.get_vintage(signal, location, forecast_date, source=source,
+                               latest_only=False)
+        if tri.empty:
+            tri["issue_lag_weeks"] = pd.Series(dtype="int64")
+            return tri
+        lag = (tri["issue_date"] - tri["reference_date"]).dt.days // 7
+        tri = tri.assign(issue_lag_weeks=lag.astype("int64"))
+        return tri
+
+    @staticmethod
+    def to_lag_matrix(triangle: pd.DataFrame, max_lag: int, last_n: Optional[int] = None):
+        """Pivot a triangle into a dense ``(reference_week x issue_lag)`` matrix.
+
+        Rows are the (optionally last ``last_n``) reference weeks in ascending
+        order; columns are integer issue lags ``0..max_lag``. Cell ``[w, k]`` is
+        the value of week ``w`` as issued ``k`` weeks after its reference date, or
+        ``NaN`` where that revision has not been issued yet as of the origin (the
+        upper-right of the triangle — precisely the not-yet-known cells a
+        revision-blind model wrongly treats as final). Returns
+        ``(ref_weeks, matrix)`` where ``ref_weeks`` is a ``DatetimeIndex`` and
+        ``matrix`` is an ``(R, max_lag+1)`` float array.
+        """
+        import numpy as np
+
+        if triangle.empty:
+            return pd.DatetimeIndex([]), np.empty((0, max_lag + 1), dtype=float)
+        t = triangle[(triangle["issue_lag_weeks"] >= 0)
+                     & (triangle["issue_lag_weeks"] <= max_lag)]
+        wide = t.pivot_table(index="reference_date", columns="issue_lag_weeks",
+                             values="value", aggfunc="last")
+        wide = wide.reindex(columns=range(max_lag + 1))
+        wide = wide.sort_index()
+        if last_n is not None:
+            wide = wide.iloc[-last_n:]
+        return pd.DatetimeIndex(wide.index), wide.to_numpy(dtype=float)
+
     # ------------------------------------------------------------- maintenance
     def list_signals(self) -> pd.DataFrame:
         """Return distinct (source, signal, location) tuples currently stored."""

@@ -53,6 +53,7 @@ from models.baseline_stat import ARIMAQuantileModel  # noqa: E402
 from models.mist_v2 import MISTModelV2  # noqa: E402
 from models.online_conformal import OnlineConformalModel  # noqa: E402
 from models.patch_tst import PatchTSTModel  # noqa: E402
+from models.raf import RAFModel  # noqa: E402
 from models.tft import TFTModel  # noqa: E402
 
 HERE = os.path.dirname(__file__)
@@ -63,9 +64,9 @@ OUT_PARQUET = os.path.join(RES, "quantiles_long.parquet")
 # may only come from "full".
 PROFILES = {
     "quick": {"n_locations": 6, "origin_stride": 3,
-              "epochs": {"mist": 5, "tft": 5, "patchtst": 5}},
+              "epochs": {"mist": 5, "tft": 5, "patchtst": 5, "raf": 5}},
     "full": {"n_locations": None, "origin_stride": 1,
-             "epochs": {"mist": 80, "tft": 40, "patchtst": 40}},
+             "epochs": {"mist": 80, "tft": 40, "patchtst": 40, "raf": 40}},
 }
 
 _COLS = ["season", "model", "forecast_date", "location", "horizon",
@@ -156,9 +157,19 @@ def _build_models(store, panel, train_end, epochs, signal=SIG, source=SRC, devic
     patchtst.fit(store, signal=signal, source=source, locations=panel, train_end_date=train_end)
     ml = GBQuantileModel(seed=0)
     ml.fit(store, signal=signal, source=source, locations=panel, train_end_date=train_end)
+    # RAF (the contribution) + its decisive backfill-off ablation. Same backbone,
+    # same ACI calibration wrapper as the other neural models; the only difference
+    # between the two is Stage-1 revision correction, so any gap is the novelty.
+    raf_epochs = epochs.get("raf", epochs.get("patchtst", 40))
+    raf = RAFModel(epochs=raf_epochs, seed=0, backfill=True, device=device)
+    raf.fit(store, signal=signal, source=source, locations=panel, train_end_date=train_end)
+    raf_nb = RAFModel(epochs=raf_epochs, seed=0, backfill=False, device=device)
+    raf_nb.fit(store, signal=signal, source=source, locations=panel, train_end_date=train_end)
     return {
         "mist_v2": OnlineConformalModel(AnalogueBlendModel(mist), store, signal=signal, source=source),
         "tft": tft, "patchtst": patchtst, "ml": ml,
+        "raf": OnlineConformalModel(raf, store, signal=signal, source=source),
+        "raf_noback": OnlineConformalModel(raf_nb, store, signal=signal, source=source),
         "arima": ARIMAQuantileModel(),
         "persistence": PersistenceQuantileModel(),
         "seasonal_naive": SeasonalNaiveQuantileModel(),

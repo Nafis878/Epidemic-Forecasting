@@ -9,6 +9,7 @@ __pycache__/
 data/store/*.parquet
 # Genuine-vintage store (regenerated on Colab via ingestion.vintage_delphi)
 data/store_genuine/
+data/store_genuine_full/
 
 # Large / ephemeral run artifacts (regenerable via scripts/reproduce.py)
 results/*.parquet

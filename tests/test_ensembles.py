@@ -93,3 +93,31 @@ def test_build_ensembles_emits_three_models_and_monotone_quantiles():
     comp = long[long.forecast_date == pd.Timestamp("2023-11-04")]
     avg = comp.groupby("quantile")["value"].mean().sort_index().to_numpy()
     assert np.allclose(em, np.sort(avg))
+
+
+def test_build_ensembles_preserves_disease_keys():
+    from evaluation.ensembles import build_ensembles, per_forecast_metrics
+
+    rows = []
+    components = ["mist_v2", "tft", "patchtst", "arima", "persistence", "ml", "seasonal_naive"]
+    for disease, y in [("flu", 10.0), ("covid", 100.0)]:
+        for i, model in enumerate(components):
+            for q in DEFAULT_QUANTILES:
+                rows.append({
+                    "disease": disease,
+                    "season": "2024-25",
+                    "model": model,
+                    "forecast_date": pd.Timestamp("2025-01-04"),
+                    "location": "US",
+                    "horizon": 1,
+                    "reference_date": pd.Timestamp("2025-01-11"),
+                    "quantile": q,
+                    "value": y + i + q,
+                    "y_true": y,
+                    "phase_origin": "Rising",
+                })
+    long = pd.DataFrame(rows)
+    ens = build_ensembles(long)
+    assert set(ens["disease"].unique()) == {"flu", "covid"}
+    metrics = per_forecast_metrics(ens)
+    assert set(metrics["disease"].unique()) == {"flu", "covid"}

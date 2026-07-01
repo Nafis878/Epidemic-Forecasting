@@ -16,6 +16,7 @@ ROOT = os.path.abspath(os.path.join(HERE, ".."))
 RES = os.path.join(ROOT, "results")
 VD = os.path.join(RES, "hybrid_verdict.json")
 MS = os.path.join(RES, "multiseason_summary.csv")
+CM = os.path.join(RES, "multiseason_common_summary.csv")
 
 pytestmark = pytest.mark.skipif(
     not (os.path.exists(VD) and os.path.exists(MS)),
@@ -31,7 +32,8 @@ def verdict():
 
 @pytest.fixture(scope="module")
 def summary():
-    return pd.read_csv(MS).set_index("model")
+    path = CM if os.path.exists(CM) else MS
+    return pd.read_csv(path).set_index("model")
 
 
 def test_verdict_internally_consistent(verdict):
@@ -70,3 +72,10 @@ def test_trimmed_ensemble_is_significant_leader(summary):
         ci = pd.read_csv(ci_path)
         row = ci[(ci["focal"] == "ens_trimmed") & (ci["vs"] == "ens_median")]
         assert not row.empty and row["ci_high"].iloc[0] < 0   # CI excludes 0 -> significant
+
+
+def test_common_mask_summary_exists_and_is_paired():
+    assert os.path.exists(CM)
+    cm = pd.read_csv(CM).set_index("model")
+    assert cm["wis_unweighted"].idxmin() == "ens_trimmed"
+    assert cm["n"].nunique() == 1

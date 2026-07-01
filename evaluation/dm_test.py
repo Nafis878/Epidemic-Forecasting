@@ -24,6 +24,14 @@ from scipy import stats
 _KEYS = ["location", "forecast_date", "horizon"]
 
 
+def _match_keys(df_a: pd.DataFrame, df_b: pd.DataFrame) -> list[str]:
+    keys = _KEYS.copy()
+    for optional in ("disease", "season", "reference_date"):
+        if optional in df_a.columns and optional in df_b.columns:
+            keys.insert(0, optional) if optional in ("disease", "season") else keys.append(optional)
+    return keys
+
+
 def _hac_var(d: np.ndarray, lag: int) -> float:
     """Bartlett-kernel HAC variance of the mean of ``d``."""
     n = len(d)
@@ -45,7 +53,7 @@ def dm_test(df_a: pd.DataFrame, df_b: pd.DataFrame, metric: str = "wis",
     Returns a dict with the statistic, two-sided p-value, mean difference
     (A - B; negative => A better), Cohen's d, and a 95% CI on the mean difference.
     """
-    m = df_a.merge(df_b, on=_KEYS, suffixes=("_a", "_b"))
+    m = df_a.merge(df_b, on=_match_keys(df_a, df_b), suffixes=("_a", "_b"))
     d = (m[f"{metric}_a"] - m[f"{metric}_b"]).to_numpy(dtype=float)
     n = len(d)
     if n < 8:

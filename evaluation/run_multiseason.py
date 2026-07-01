@@ -11,6 +11,9 @@ ensemble baselines (:mod:`evaluation.ensembles`), and the three hybrid ablations
   WIS (each season equal — the headline, so a single big season can't dominate)
   and the **forecast-weighted** (pooled) mean WIS, plus pooled coverage and a
   rank.
+* ``results/multiseason_common_summary.csv`` — the paper-facing paired version
+  restricted to forecast keys present for every model, plus
+  ``results/common_mask_report.csv`` explaining retained/dropped keys.
 * ``results/phase_by_season.csv``      — per (model, season, vintage phase) WIS.
 * ``results/horizon_by_season.csv``    — per (model, season, horizon) WIS.
 
@@ -38,6 +41,11 @@ from models.phase_stack import build_all_stacks  # noqa: E402
 
 HERE = os.path.dirname(__file__)
 RES = os.path.abspath(os.path.join(HERE, "..", "results"))
+_FAIR_KEY = ["season", "forecast_date", "location", "horizon"]
+
+
+def fair_key_cols(df: pd.DataFrame) -> list[str]:
+    return (["disease"] if "disease" in df.columns else []) + _FAIR_KEY
 
 
 def assemble_all(path: str = LONG_PATH) -> pd.DataFrame:
@@ -72,6 +80,48 @@ def _multiseason_summary(leaderboard: pd.DataFrame, metrics: pd.DataFrame) -> pd
     return out[cols]
 
 
+def common_mask_metrics(metrics: pd.DataFrame, models: list[str] | None = None) -> pd.DataFrame:
+    """Return metrics restricted to forecast keys present for every selected model.
+
+    The default headline leaderboard should be a paired comparison: every model
+    receives exactly the same ``(season, forecast_date, location, horizon)`` cells.
+    Available-case means are still useful diagnostics, but a common mask removes
+    ambiguity when one model drops early/stale targets.
+    """
+    models = sorted(models or metrics["model"].unique())
+    sub = metrics[metrics["model"].isin(models)].copy()
+    fkey = fair_key_cols(sub)
+    present = sub.drop_duplicates(fkey + ["model"])
+    counts = present.groupby(fkey)["model"].nunique()
+    complete = counts[counts == len(models)].index
+    if len(complete) == 0:
+        return sub.iloc[0:0].copy()
+    keep = pd.MultiIndex.from_frame(sub[fkey]).isin(complete)
+    return sub[keep].reset_index(drop=True)
+
+
+def common_mask_report(metrics: pd.DataFrame, models: list[str] | None = None) -> pd.DataFrame:
+    """Per-season accounting for the common-mask comparison."""
+    models = sorted(models or metrics["model"].unique())
+    sub = metrics[metrics["model"].isin(models)]
+    fkey = fair_key_cols(sub)
+    present = sub.drop_duplicates(fkey + ["model"])
+    counts = present.groupby(fkey)["model"].nunique().reset_index(name="n_models")
+    rows = []
+    for season, g in counts.groupby("season"):
+        total = len(g)
+        complete = int((g["n_models"] == len(models)).sum())
+        rows.append({
+            "season": season,
+            "models_required": len(models),
+            "total_forecast_keys": total,
+            "common_forecast_keys": complete,
+            "dropped_forecast_keys": total - complete,
+            "common_fraction": complete / total if total else 0.0,
+        })
+    return pd.DataFrame(rows).sort_values("season").reset_index(drop=True)
+
+
 def _strat(metrics: pd.DataFrame, by: str) -> pd.DataFrame:
     g = (metrics.groupby(["model", "season", by])
          .agg(n=("wis", "size"), wis=("wis", "mean")).reset_index())
@@ -85,17 +135,31 @@ def run(path: str = LONG_PATH) -> dict:
 
     leaderboard = _season_leaderboard(metrics)
     summary = _multiseason_summary(leaderboard, metrics)
+    common_metrics = common_mask_metrics(metrics)
+    common_leaderboard = _season_leaderboard(common_metrics)
+    common_summary = _multiseason_summary(common_leaderboard, common_metrics)
+    common_report = common_mask_report(metrics)
     phase = _strat(metrics, "phase_origin")
     horizon = _strat(metrics, "horizon")
 
     leaderboard.to_csv(os.path.join(RES, "season_leaderboard.csv"), index=False)
     summary.to_csv(os.path.join(RES, "multiseason_summary.csv"), index=False)
+    common_leaderboard.to_csv(os.path.join(RES, "season_leaderboard_common.csv"), index=False)
+    common_summary.to_csv(os.path.join(RES, "multiseason_common_summary.csv"), index=False)
+    common_report.to_csv(os.path.join(RES, "common_mask_report.csv"), index=False)
     phase.to_csv(os.path.join(RES, "phase_by_season.csv"), index=False)
     horizon.to_csv(os.path.join(RES, "horizon_by_season.csv"), index=False)
 
     print("=== multiseason summary (season-unweighted WIS; lower=better) ===")
     print(summary.round(3).to_string(index=False))
+    print("\n=== COMMON-MASK multiseason summary (paired; lower=better) ===")
+    print(common_summary.round(3).to_string(index=False))
+    print("\n=== common-mask accounting ===")
+    print(common_report.round(3).to_string(index=False))
     return {"leaderboard": leaderboard, "summary": summary,
+            "common_leaderboard": common_leaderboard,
+            "common_summary": common_summary,
+            "common_report": common_report,
             "phase": phase, "horizon": horizon}
 
 

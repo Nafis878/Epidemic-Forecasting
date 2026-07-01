@@ -76,6 +76,8 @@ def _hybrid_checks() -> list[tuple[str, bool, str]]:
     """
     out: list[tuple[str, bool, str]] = []
     ms_path = os.path.join(RES, "multiseason_summary.csv")
+    cm_path = os.path.join(RES, "multiseason_common_summary.csv")
+    cr_path = os.path.join(RES, "common_mask_report.csv")
     vd_path = os.path.join(RES, "hybrid_verdict.json")
     if not (os.path.exists(ms_path) and os.path.exists(vd_path)):
         out.append(("multi-season hybrid artifacts present (run reproduce.py to generate)",
@@ -87,6 +89,13 @@ def _hybrid_checks() -> list[tuple[str, bool, str]]:
             "ens_perf", "ens_median", "ens_mean", "mist_v2", "patchtst", "tft"}
     out.append(("multiseason_summary has hybrid + ensembles + base models",
                 need <= set(ms.index), f"{len(ms)} models"))
+    common_present = os.path.exists(cm_path) and os.path.exists(cr_path)
+    out.append(("common-mask multi-season artifacts present",
+                common_present, "present" if common_present else "missing"))
+    if os.path.exists(cm_path):
+        cm = pd.read_csv(cm_path).set_index("model")
+        out.append(("common-mask summary has hybrid + ensembles + base models",
+                    need <= set(cm.index), f"{len(cm)} models"))
 
     with open(vd_path) as f:
         v = json.load(f)

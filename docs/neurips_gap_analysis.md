@@ -189,11 +189,11 @@ Two cheap, decisive experiments on the full dump:
   is `eta -> 0` (i.e. equal weight); **any** concentration on prior-season performance *hurts*.
   Prior-season WIS does not transfer. Retuning the existing weighting cannot win — its ceiling is
   equal weight (115.5), already behind PatchTST (114.2) and the 5-model median (114.3).
-- **Component-set / equal-weight ceiling.** `{tft,patchtst}` mean = **112.8**; `{tft,patchtst,mist}`
-  mean = **112.4**; **median over all 7 base models = 110.4** (the best of everything). The broad
-  median ensemble is the robust winner — the canonical Forecast-Hub result.
+- **Component-set / equal-weight ceiling.** The paired common-mask rerun puts the broad
+  median ensemble at **113.2** and the trimmed ensemble at **109.9**. The broad robust ensemble
+  family is the winner -- the canonical Forecast-Hub result.
 
-**Implication.** The bar to beat is ~**110.4** (median-of-7). Performance-weighting and phase gating
+**Implication.** The bar to beat is ~**109.9** (paired trimmed ensemble). Performance-weighting and phase gating
 do not clear it; the winning object is a simple, broad robust ensemble.
 
 ## 8c. Bounded win attempt — SUCCESS: the trimmed-mean ensemble
@@ -204,20 +204,23 @@ min and max across the seven base models, average the middle five (a robust aggr
 the weak members the plain mean cannot). Promoted to a first-class baseline (`models/ensemble.py:
 trimmed_mean`, `evaluation/ensembles.py`).
 
-Final full-run leaderboard (season-unweighted WIS):
+Final paired full-run leaderboard (season-unweighted WIS on the common forecast mask):
 
 | Rank | Model | WIS | cov-50 |
 |---:|---|---:|---:|
-| 1 | **ens_trimmed** | **107.1** | 0.548 |
-| 2 | ens_median | 110.4 | 0.527 |
-| 3 | patchtst | 114.2 | 0.468 |
-| 4 | tft | 118.5 | 0.435 |
-| 5 | ens_mean | 125.3 | 0.529 |
-| 8 | stack_phase_conformal (hybrid) | 150.5 | 0.588 |
+| 1 | **ens_trimmed** | **109.9** | 0.549 |
+| 2 | ens_median | 113.2 | 0.530 |
+| 3 | patchtst | 116.9 | 0.470 |
+| 4 | tft | 121.1 | 0.437 |
+| 5 | ens_mean | 128.7 | 0.532 |
+| 8 | stack_phase_conformal (hybrid) | 153.3 | 0.587 |
 
-**Significance (clustered bootstrap, focal = ens_trimmed; Holm-DM):** ens_trimmed beats `ens_median`
-(Δ −3.42, CI [−5.25, −1.57], DM p_holm 3e-4), `patchtst` (Δ −6.62, CI [−12.86, −1.10], p_holm 0.033),
-and the hybrid (Δ −39, CI [−65.6, −19.0]). All CIs exclude 0.
+**Significance (paired common mask, focal = ens_trimmed):** ens_trimmed beats `ens_median`
+(Δ −3.42, bootstrap CI [−5.51, −1.50], Holm-DM p=0.0094), `tft`
+(Δ −10.39, CI [−14.22, −6.90], Holm-DM p<1e-7), and the hybrid
+(Δ −39.95, CI [−69.04, −20.21], BH-DM p=0.0022; Holm-DM p=0.0501). It beats
+`patchtst` under clustered bootstrap (Δ −6.69, CI [−13.06, −0.69]) and BH-DM
+(p=0.027), but **not** Holm-DM (p=0.577). We report that caveat explicitly.
 
 **Honest caveats (must be stated):** (i) trimmed-mean ensembling is a *known* robust aggregator — the
 contribution is the **benchmark** and the rigorous, significant **comparative finding** ("trimming >
@@ -225,8 +228,10 @@ median, the hub's deployed default"), not a novel method; (ii) per season ens_tr
 2024-25 but **loses the thin 2022-23 to standalone PatchTST** (99.3 vs 91.3), so the win is on the
 season-unweighted headline metric, not every season; (iii) the sophisticated phase-gated/online/
 conformal hybrid does **not** beat simple trimming — a clean negative result (sophistication does not
-pay here). All wired into `results/multiseason_summary.csv`, `tables/bootstrap_ci.csv`, and the gate;
-85 tests pass. **Pivot now proceeds to WP1 (genuine vintage) + WP2 (multi-disease) + WP4/WP6.**
+pay here). Paper-facing paired artifacts are now wired into
+`results/multiseason_common_summary.csv`, `tables/bootstrap_ci_common.csv`, and the gate;
+focused leakage/claim/reproducibility tests pass. **Pivot now proceeds to WP1 (genuine vintage) +
+WP2 (multi-disease) + WP4/WP6.**
 
 ## 9. WP1/WP2 — genuine-vintage data reality (the decisive provenance finding)
 

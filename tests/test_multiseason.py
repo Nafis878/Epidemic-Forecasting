@@ -57,6 +57,15 @@ def test_season_unweighted_is_mean_of_per_season_means(assembled):
     assert np.isclose(summary.loc[m, "wis_unweighted"], by_season.mean(), rtol=1e-6)
 
 
+def test_common_mask_keeps_same_forecast_count_per_model(assembled):
+    from evaluation.run_multiseason import common_mask_metrics
+    metrics = per_forecast_metrics(assembled)
+    cm = common_mask_metrics(metrics)
+    counts = cm.groupby("model").size()
+    assert counts.nunique() == 1
+    assert set(counts.index) == set(metrics["model"].unique())
+
+
 def test_hybrid_quantiles_are_monotone(assembled):
     hy = assembled[assembled["model"] == "stack_phase_conformal"]
     for _, g in hy.groupby(["season", "forecast_date", "location", "horizon"]):
